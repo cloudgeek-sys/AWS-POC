@@ -113,7 +113,7 @@ Complete repository structure snapshot:
 │   ├── adrs/
 │   │   └── 0001-lakehouse-medallion.md
 │   ├── diagrams/
-│   │   ├── architecture.drawio
+│   │   ├── Architecture-Diagram.png
 │   │   ├── architecture.md
 │   │   ├── architecture.mmd
 │   │   └── network.mmd
