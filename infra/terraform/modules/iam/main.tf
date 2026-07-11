@@ -516,6 +516,58 @@ resource "aws_iam_user_policy_attachment" "terraform_deployer_user_attachment" {
   policy_arn = aws_iam_policy.terraform_deployer[0].arn
 }
 
+data "aws_iam_policy_document" "terraform_logs_deployer" {
+  statement {
+    sid = "CloudWatchLogGroupDescribe"
+
+    actions = [
+      "logs:DescribeLogGroups"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "CloudWatchLogGroupManagement"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:PutRetentionPolicy",
+      "logs:DeleteRetentionPolicy",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource"
+    ]
+
+    resources = [
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws-glue/jobs/${local.name_prefix}*",
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/vendedlogs/states/${local.name_prefix}*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "terraform_logs_deployer" {
+  count = var.deployer_policy_enabled ? 1 : 0
+
+  name   = "${local.name_prefix}-terraform-logs-deployer"
+  policy = data.aws_iam_policy_document.terraform_logs_deployer.json
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_logs_deployer_role_attachment" {
+  count = var.deployer_policy_enabled && var.deployer_role_name != null ? 1 : 0
+
+  role       = var.deployer_role_name
+  policy_arn = aws_iam_policy.terraform_logs_deployer[0].arn
+}
+
+resource "aws_iam_user_policy_attachment" "terraform_logs_deployer_user_attachment" {
+  count = var.deployer_policy_enabled && var.deployer_user_name != null ? 1 : 0
+
+  user       = var.deployer_user_name
+  policy_arn = aws_iam_policy.terraform_logs_deployer[0].arn
+}
+
 data "aws_iam_policy_document" "persona_assume_user" {
   count = var.deployer_user_name != null ? 1 : 0
 
@@ -771,6 +823,13 @@ resource "aws_iam_role_policy_attachment" "persona_data_engineer_terraform_deplo
 
   role       = aws_iam_role.persona["data_engineer"].name
   policy_arn = aws_iam_policy.terraform_deployer[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "persona_data_engineer_terraform_logs_deployer" {
+  count = var.deployer_user_name != null && var.deployer_policy_enabled ? 1 : 0
+
+  role       = aws_iam_role.persona["data_engineer"].name
+  policy_arn = aws_iam_policy.terraform_logs_deployer[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "persona_analyst" {

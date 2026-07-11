@@ -9,6 +9,7 @@ __pycache__/
 *.tfstate
 *.tfstate.*
 *.tfplan
+*tfplan*
 .terraform.lock.hcl
 
 # OS / Editor

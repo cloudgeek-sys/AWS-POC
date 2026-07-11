@@ -10,7 +10,7 @@ Production-style, cost-aware, medallion lakehouse pipeline for global power plan
 - Data quality checks (schema, nulls, ranges, duplicates, freshness, volume)
 - Orchestration with AWS Step Functions
 - Monitoring with CloudWatch metrics and alarms
-- Terraform-based infrastructure with a single deployment environment (main)
+- Terraform-based infrastructure with environment-scoped configuration
 - CI/CD with GitHub Actions for validation and deployment
 
 ## 2. High-level architecture
@@ -33,7 +33,7 @@ See docs:
 | --- | --- | --- |
 | Architecture Diagram | Available | `docs/diagrams/architecture.md`, `docs/diagrams/architecture.mmd` |
 | Network Diagram | Available | `docs/diagrams/network.mmd` |
-| Terraform Code | Available | `infra/terraform/modules`, `infra/terraform/environments/main` |
+| Terraform Code | Available | `infra/terraform/modules`, `infra/terraform/environments/<environment>` |
 | ETL Pipeline | Available | `pipelines/bronze`, `pipelines/silver`, `pipelines/gold` |
 | Data Models | Available | Gold facts/dimensions in `pipelines/gold/build_gold_tables.py` |
 | Schema Documentation | Available | `artifacts/local/audit/governance/schema_documentation.json` |
@@ -270,22 +270,22 @@ python scripts/local_simulate_incremental.py \
 pytest pipelines/tests -q
 ```
 
-## 5. Deploy infrastructure (main)
+## 5. Deploy infrastructure
 
-Terraform state for `main` is configured to use S3 remote state:
+Terraform state is configured to use S3 remote state:
 
 - Bucket: `tf-state-371170753734-us-east-1-an`
-- Key: `aws-poc/main/terraform.tfstate`
+- Key: `aws-poc/<environment>/terraform.tfstate`
 - Region: `us-east-1`
 
 If you previously used local state, run this once to migrate state to S3:
 
 ```bash
-terraform -chdir=infra/terraform/environments/main init -reconfigure -migrate-state
+terraform -chdir=infra/terraform/environments/<environment> init -reconfigure -migrate-state
 ```
 
 ```bash
-cd infra/terraform/environments/main
+cd infra/terraform/environments/<environment>
 cp terraform.tfvars.example terraform.tfvars
 terraform init
 terraform plan
@@ -296,22 +296,22 @@ terraform apply
 
 Use this exact order for a full fresh bootstrap:
 
-1. `terraform -chdir=infra/terraform/environments/main init`
-1. `terraform -chdir=infra/terraform/environments/main plan`
-1. `terraform -chdir=infra/terraform/environments/main apply`
-1. `scripts/upload_glue_code.sh --env-dir infra/terraform/environments/main`
+1. `terraform -chdir=infra/terraform/environments/<environment> init`
+1. `terraform -chdir=infra/terraform/environments/<environment> plan`
+1. `terraform -chdir=infra/terraform/environments/<environment> apply`
+1. `scripts/upload_glue_code.sh --env-dir infra/terraform/environments/<environment>`
 1. Start Step Functions execution using output ARN:
 
 ```bash
 aws stepfunctions start-execution \
-  --state-machine-arn "$(terraform -chdir=infra/terraform/environments/main output -raw step_function_arn)" \
-  --name "gppa-main-run-$(date +%s)"
+  --state-machine-arn "$(terraform -chdir=infra/terraform/environments/<environment> output -raw step_function_arn)" \
+  --name "gppa-run-$(date +%s)"
 ```
 
 1. Validate Bronze/Silver/Gold/Audit objects in S3:
 
 ```bash
-BUCKET="$(terraform -chdir=infra/terraform/environments/main output -raw data_lake_bucket)"
+BUCKET="$(terraform -chdir=infra/terraform/environments/<environment> output -raw data_lake_bucket)"
 aws s3 ls "s3://$BUCKET/bronze/" --recursive | head
 aws s3 ls "s3://$BUCKET/silver/" --recursive | head
 aws s3 ls "s3://$BUCKET/gold/" --recursive | head
@@ -323,7 +323,7 @@ aws s3 ls "s3://$BUCKET/audit/" --recursive | head
 After Terraform apply, upload pipeline scripts to the S3 code prefix expected by Glue jobs:
 
 ```bash
-scripts/upload_glue_code.sh --env-dir infra/terraform/environments/main
+scripts/upload_glue_code.sh --env-dir infra/terraform/environments/<environment>
 ```
 
 Or provide bucket directly:
@@ -351,8 +351,8 @@ CI/CD coverage:
 
 Implementation mapping:
 
-- Automated deployment: `.github/workflows/deploy-main.yml` triggers on push to `main` and supports `workflow_dispatch`.
-- Environment configs: deploy workflow validates `infra/terraform/environments/main/terraform.tfvars`.
+- Automated deployment: `.github/workflows/deploy-main.yml` triggers on the default branch and supports `workflow_dispatch`.
+- Environment configs: deploy workflow validates `infra/terraform/environments/<environment>/terraform.tfvars`.
 - Testing: deploy workflow runs `pytest pipelines/tests -q` before Terraform apply.
 - Validation: deploy workflow runs Terraform `fmt`/`validate` and post-deploy checks for Step Functions + S3 code path.
 
