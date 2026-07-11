@@ -1,0 +1,99 @@
+name: Deploy Main
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'infra/**'
+      - 'pipelines/**'
+      - 'scripts/upload_glue_code.sh'
+      - 'scripts/post_deploy_smoke_check.sh'
+      - 'scripts/refresh_quicksight_datasets.sh'
+      - '.github/workflows/deploy-main.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: main
+    env:
+      TF_ENV_DIR: infra/terraform/environments/main
+      TF_VARS_FILE: infra/terraform/environments/main/terraform.tfvars
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipelines/requirements.txt
+
+      - name: Run tests
+        run: pytest pipelines/tests -q
+
+      - name: Validate environment config file exists
+        run: test -f "$TF_VARS_FILE"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt check
+        run: terraform -chdir="$TF_ENV_DIR" fmt -check
+
+      - name: Terraform validate
+        run: |
+          terraform -chdir="$TF_ENV_DIR" init -backend=false
+          terraform -chdir="$TF_ENV_DIR" validate
+
+      - name: Terraform init
+        run: terraform -chdir="$TF_ENV_DIR" init
+
+      - name: Terraform plan
+        run: terraform -chdir="$TF_ENV_DIR" plan -out=tfplan
+
+      - name: Terraform apply
+        run: terraform -chdir="$TF_ENV_DIR" apply -auto-approve tfplan
+
+      - name: Upload Glue pipeline code to S3
+        run: scripts/upload_glue_code.sh --env-dir "$TF_ENV_DIR"
+
+      - name: Post-deploy QuickSight dataset refresh
+        run: scripts/refresh_quicksight_datasets.sh gppa-main
+
+      - name: Post-deploy validation
+        run: |
+          SFN_ARN="$(terraform -chdir="$TF_ENV_DIR" output -raw step_function_arn)"
+          BUCKET="$(terraform -chdir="$TF_ENV_DIR" output -raw data_lake_bucket)"
+          aws stepfunctions describe-state-machine --state-machine-arn "$SFN_ARN" --query '{name:name,status:status}' --output json
+          aws s3 ls "s3://$BUCKET/code/pipelines/" --recursive | head
+
+      - name: Post-deploy smoke checks
+        run: scripts/post_deploy_smoke_check.sh gppa-main --report-file smoke-check-report-main.json
+
+      - name: Archive smoke-check report to S3
+        if: always()
+        run: |
+          if [ -f smoke-check-report-main.json ]; then
+            BUCKET="$(terraform -chdir="$TF_ENV_DIR" output -raw data_lake_bucket)"
+            TS="$(date -u +%Y%m%dT%H%M%SZ)"
+            aws s3 cp smoke-check-report-main.json "s3://$BUCKET/audit/deploy-smoke/main-${TS}.json"
+          else
+            echo "Smoke report file not found; skipping S3 archival."
+          fi
+
+      - name: Upload smoke-check report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-check-report-main
+          path: smoke-check-report-main.json
+          if-no-files-found: warn

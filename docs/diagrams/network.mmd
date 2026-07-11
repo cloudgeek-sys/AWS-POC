@@ -1,0 +1,17 @@
+flowchart LR
+    GH[GitHub Actions] --> TF[Terraform Deploy]
+    TF --> IAM[IAM Roles and Policies]
+    TF --> S3[S3 Data Lake]
+    TF --> GLUE[AWS Glue Jobs]
+    TF --> SFN[AWS Step Functions]
+    TF --> ATH[Athena Workgroup]
+    TF --> CW[CloudWatch]
+    TF --> QS[QuickSight]
+
+    GLUE --> S3
+    SFN --> GLUE
+    ATH --> S3
+    QS --> ATH
+
+    GLUE --> CW
+    SFN --> CW

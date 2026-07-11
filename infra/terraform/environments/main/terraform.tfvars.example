@@ -1,0 +1,54 @@
+aws_region              = "us-east-1"
+project_name            = "gppa"
+environment             = "main"
+data_lake_bucket_suffix = "replace-with-unique-suffix"
+glue_job_worker_count   = 2
+schedule_expression     = "cron(0 4 * * ? *)"
+
+# Optional: create and attach least-privilege deployer policy to an existing principal.
+deployer_policy_enabled = true
+deployer_role_name      = null
+deployer_user_name      = null
+
+# Optional QuickSight provisioning
+enable_quicksight       = false
+quicksight_user_arn     = null
+quicksight_dataset_principal_arns = []
+athena_database_name    = "gppa_main_analytics"
+enable_quicksight_datasets   = true
+enable_quicksight_dashboards = false
+quicksight_dashboard_templates = {
+	power_generation = {
+		template_arn = "arn:aws:quicksight:us-east-1:<account-id>:template/<power-generation-template-id>"
+		data_set_placeholders = {
+			power_generation_country_capacity = "power_generation_country_capacity"
+			power_generation_fuel_distribution = "power_generation_fuel_distribution"
+			power_generation_renewable_trends  = "power_generation_renewable_trends"
+		}
+	}
+	plant = {
+		template_arn = "arn:aws:quicksight:us-east-1:<account-id>:template/<plant-template-id>"
+		data_set_placeholders = {
+			plant_largest_plants = "plant_largest_plants"
+			plant_aging_plants   = "plant_aging_plants"
+			plant_utilization    = "plant_utilization"
+		}
+	}
+	sustainability = {
+		template_arn = "arn:aws:quicksight:us-east-1:<account-id>:template/<sustainability-template-id>"
+		data_set_placeholders = {
+			sustainability_heatmap              = "sustainability_heatmap"
+			sustainability_country_distribution = "sustainability_country_distribution"
+			sustainability_regional_density     = "sustainability_regional_density"
+		}
+	}
+	monitoring = {
+		template_arn = "arn:aws:quicksight:us-east-1:<account-id>:template/<monitoring-template-id>"
+		data_set_placeholders = {
+			monitoring_pipeline_freshness = "monitoring_pipeline_freshness"
+			monitoring_failed_jobs        = "monitoring_failed_jobs"
+			monitoring_data_quality       = "monitoring_data_quality"
+			monitoring_latency            = "monitoring_latency"
+		}
+	}
+}

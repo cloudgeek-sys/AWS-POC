@@ -1,32 +1,37 @@
 # QuickSight KPI Mapping
 
+Selected BI platform: AWS QuickSight
+
+This project uses QuickSight only. Superset artifacts are not part of the active BI scope.
+
+## Dashboard evidence PDFs
+
+- dashboards/Power-Generation-Dashboard.pdf
+- dashboards/Plant-Operations-Dashboard.pdf
+- dashboards/Sustainability-Dashboard.pdf
+- dashboards/Monitoring-Dashboard.pdf
+
 ## Power Generation Dashboard
 
-- Country-wise generation capacity: fact_plant_capacity.total_capacity_mw by country
-- Fuel type distribution: fact_plant_capacity.total_capacity_mw by primary_fuel
-- Renewable vs non-renewable trends: fact_power_generation with renewable classification
+- Country capacity: vw_power_generation_country_capacity
+- Fuel distribution: vw_power_generation_fuel_distribution
+- Renewable trends: vw_power_generation_renewable_trend
 
-## Plant Operations Dashboard
+## Plant Dashboard
 
-- Largest power plants: dim_plant joined with fact_plant_capacity
-- Plant aging analysis: current_year - commissioning_year
-- Capacity utilization indicators: estimated_generation_gwh / capacity_mw (proxy)
+- Largest plants: vw_plant_operations_largest_plants
+- Aging plants: vw_plant_operations_aging_infrastructure
+- Utilization: vw_plant_operations_capacity_utilization
 
 ## Sustainability Dashboard
 
-- Renewable adoption trends: renewable_generation_gwh / total_generation_gwh
-- Coal dependency analysis: capacity share where primary_fuel='Coal'
-- Regional clean energy comparison: grouped by country and region
+- Heatmap: vw_sustainability_heatmap
+- Country distribution: vw_sustainability_country_distribution
+- Regional density: vw_sustainability_regional_density
 
-## Geographic Dashboard
+## Monitoring Dashboard
 
-- Heatmap: latitude/longitude from dim_plant
-- Infrastructure distribution: plant count by country
-- Generation density: total_capacity_mw by country
-
-## Operational Monitoring Dashboard
-
-- Pipeline freshness: freshness_lag_hours metric
-- Failed jobs: dq_failure_count and orchestration failures
-- Data quality alerts: malformed_rows trend
-- Processing latency: end_to_end_duration_minutes metric
+- Pipeline freshness: vw_monitoring_pipeline_freshness
+- Failed jobs: vw_monitoring_failed_jobs
+- Data quality: vw_monitoring_data_quality
+- Latency: vw_monitoring_latency

@@ -1,6 +1,0 @@
-aws_region              = "us-east-1"
-project_name            = "gppa"
-environment             = "qa"
-data_lake_bucket_suffix = "replace-with-unique-suffix"
-glue_job_worker_count   = 2
-schedule_expression     = "cron(0 4 * * ? *)"

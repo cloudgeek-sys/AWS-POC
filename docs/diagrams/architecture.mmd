@@ -1,24 +1,96 @@
 flowchart LR
-    SRC[Public Datasets] --> ING[Glue Bronze Ingestion Job]
-    ING --> BRZ[S3 Bronze]
+    %% ------------------------------------------------------------
+    %% Global Power Plant Analytics Platform - AWS Architecture
+    %% ------------------------------------------------------------
 
-    BRZ --> TRN[Glue Silver Transform Job]
-    TRN --> SLV[S3 Silver]
-    TRN --> QTN[S3 Quarantine]
-    ING --> AUD[S3 Audit and Checkpoints]
-    TRN --> AUD
+    subgraph DEVOPS[CI CD]
+        GH[GitHub Actions]
+        TF[Terraform Modules and Environments]
+        UP[Glue Code Upload Script]
+    end
 
-    SLV --> GLD_JOB[Glue Gold Build Job]
-    GLD_JOB --> GLD[S3 Gold]
+    subgraph ORCH[AWS Orchestration]
+        SFN[AWS Step Functions State Machine]
+    end
 
-    GLD --> ATH[Athena Workgroup]
-    GLD --> BI[QuickSight and Superset Datasets]
+    subgraph ETL[AWS Processing]
+        ING[AWS Glue Job Bronze Ingest]
+        TRN[AWS Glue Job Silver Transform]
+        GLD_JOB[AWS Glue Job Gold Build]
+        VIZ[AWS Glue Job Visualization Build]
+    end
 
-    SFN[Step Functions State Machine] --> ING
+    subgraph EXT[External Data Sources]
+        KAG[Kaggle or API Sources]
+    end
+
+    subgraph LAKE[AWS S3 Lakehouse]
+        RAW[S3 Raw and Incremental Sources]
+        BRZ[S3 Bronze Layer]
+        SLV[S3 Silver Layer]
+        GLD[S3 Gold Layer]
+        QTN[S3 Quarantine]
+        AUD[S3 Audit and Checkpoints]
+        VOUT[S3 Visualization Artifacts PNG JSON]
+    end
+
+    subgraph ANALYTICS[AWS Analytics and BI]
+        CAT[AWS Glue Data Catalog]
+        ATH[AWS Athena Workgroup]
+        QS[AWS QuickSight]
+    end
+
+    subgraph OBS[AWS Observability]
+        MET[Pipeline Metrics and Quality Reports]
+        CW[AWS CloudWatch Alarms and Logs]
+    end
+
+    GH --> TF
+    GH --> UP
+    TF --> SFN
+    TF --> ING
+    TF --> TRN
+    TF --> GLD_JOB
+    TF --> VIZ
+
+    KAG --> ING
+    RAW --> ING
+    SFN --> ING
     SFN --> TRN
     SFN --> GLD_JOB
+    SFN --> VIZ
 
-    MET[Pipeline Metrics] --> CW[CloudWatch Alarms]
+    ING --> BRZ
+    ING --> AUD
+
+    BRZ --> TRN
+    TRN --> SLV
+    TRN --> QTN
+    TRN --> AUD
+
+    SLV --> GLD_JOB
+    GLD_JOB --> GLD
+    GLD_JOB --> AUD
+    GLD --> VIZ
+    VIZ --> VOUT
+
+    BRZ --> CAT
+    SLV --> CAT
+    GLD --> CAT
+
+    CAT --> ATH
+    ATH --> QS
+
     ING --> MET
     TRN --> MET
     GLD_JOB --> MET
+    VIZ --> MET
+    MET --> CW
+
+    classDef aws fill:#FFF7ED,stroke:#FF9900,stroke-width:1.5px,color:#232F3E;
+    classDef store fill:#F8FBFF,stroke:#4A90E2,stroke-width:1.2px,color:#1F2937;
+    classDef ops fill:#F5F3FF,stroke:#6366F1,stroke-width:1.2px,color:#111827;
+
+    class SFN,ING,TRN,GLD_JOB,VIZ,CAT,ATH,QS,CW aws;
+    class RAW,BRZ,SLV,GLD,QTN,AUD,VOUT store;
+    class GH,TF,UP,MET,KAG ops;

@@ -9,7 +9,7 @@ Usage:
 
 Examples:
   scripts/upload_glue_code.sh --bucket my-gppa-lake-bucket
-  scripts/upload_glue_code.sh --env-dir infra/terraform/environments/dev
+  scripts/upload_glue_code.sh --env-dir infra/terraform/environments/main
 EOF
 }
 

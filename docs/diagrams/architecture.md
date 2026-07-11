@@ -4,7 +4,7 @@
 
 - Production-first architecture with modular IaC and CI/CD
 - Medallion model (Bronze/Silver/Gold)
-- Kimball dimensional marts for BI consumption
+- Kimball dimensional marts for BI consumption in QuickSight
 - Idempotent and replay-safe ingestion semantics
 - Observability-first (data quality + freshness + latency)
 
@@ -17,19 +17,24 @@ flowchart LR
     C --> D[Silver Transform\nStandardize + DQ + Dedupe]
     D --> E[S3 Silver\nConformed Parquet]
     E --> F[Gold Build\nFacts + Dimensions]
-    F --> G[S3 Gold / Athena]
-    F --> H[Redshift Optional]
+  F --> G[S3 Gold / Athena]
+  G --> N[Visualization Build\nPNG + Manifest]
 
     B --> I[Run Metadata\nS3 audit + checkpoints]
     D --> J[Quarantine\nMalformed records]
     B --> K[CloudWatch Metrics]
     D --> K
     F --> K
-    K --> L[CloudWatch Alarms/SNS]
+  N --> K
+  K --> L[CloudWatch Alarms]
 
     M[Step Functions] --> B
     M --> D
     M --> F
+  M --> N
+
+  G --> Q[Athena Views]
+  Q --> R[QuickSight Dashboards]
 ```
 
 ## Physical AWS components
@@ -48,34 +53,42 @@ flowchart LR
   - bronze_ingest_power_plants
   - silver_transform_power_plants
   - gold_build_power_analytics
+  - visualizations_build
 - AWS Step Functions:
   - state machine for orchestration and retry/replay
 - Amazon Athena:
   - interactive SQL and BI views over Gold data
+- Amazon QuickSight:
+  - dashboard and KPI visualization layer
 - Amazon CloudWatch:
   - metrics, alarms, and logs
 
 ## Data model overview
 
 Dimensions:
+
 - DimPlant
 - DimCountry
 - DimFuelType
 - DimTime
 
 Facts:
+
 - FactPlantCapacity
 - FactPowerGeneration
 
 ## Partition strategy
 
 Bronze:
+
 - ingest_year=YYYY/ingest_month=MM/ingest_day=DD/source_name=...
 
 Silver:
+
 - event_year=YYYY/event_month=MM/country_code=XX
 
 Gold:
+
 - year=YYYY/country_code=XX/fuel_group=...
 
 ## Late-arriving and replay strategy
@@ -84,3 +97,8 @@ Gold:
 - Watermark-based incremental window to include late arrivals
 - Checkpoint table stores last successful event timestamp and file hashes
 - Replay mode reprocesses a bounded date window idempotently
+
+## BI scope
+
+- BI scope is QuickSight-only for active delivery
+- Dashboard evidence is maintained as PDFs under dashboards/

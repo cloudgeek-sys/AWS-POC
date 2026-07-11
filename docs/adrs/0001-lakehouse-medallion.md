@@ -32,3 +32,10 @@ Cons:
 ## Trade-offs
 - Keep Bronze/Silver/Gold strict, while using lightweight quality framework first
 - Add Iceberg ACID tables once incremental upsert volume grows
+
+## Implementation updates 
+
+- BI scope standardized to AWS QuickSight only; Superset is out of active delivery scope.
+- Terraform state source of truth is remote S3 backend; local terraform state and plan artifacts are treated as disposable workspace files.
+- Post-deploy reliability gate is mandatory through smoke checks (Step Functions, S3 code presence, QuickSight assets, representative Athena view checks).
+- Dashboard proof artifacts for delivery and sign-off are maintained as PDF evidence files under dashboards/.

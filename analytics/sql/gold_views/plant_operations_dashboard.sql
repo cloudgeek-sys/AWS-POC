@@ -1,13 +1,56 @@
-CREATE OR REPLACE VIEW vw_plant_operations_dashboard AS
+CREATE OR REPLACE VIEW vw_plant_operations_largest_plants AS
 SELECT
-  p.plant_id,
-  p.plant_name,
-  p.country,
-  p.primary_fuel,
-  p.capacity_mw AS plant_capacity_mw,
-  p.commissioning_year,
-  c.total_capacity_mw AS country_fuel_capacity_mw
-FROM dim_plant p
-JOIN fact_plant_capacity c
-  ON p.country = c.country
- AND p.primary_fuel = c.primary_fuel;
+  CAST(plant_id AS varchar) AS plant_id,
+  CAST(plant_name AS varchar) AS plant_name,
+  CAST(country AS varchar) AS country,
+  CAST(primary_fuel AS varchar) AS primary_fuel,
+  CAST(capacity_mw AS double) AS capacity_mw,
+  CAST(commissioning_year AS integer) AS commissioning_year,
+  CAST(latitude AS double) AS latitude,
+  CAST(longitude AS double) AS longitude
+FROM dim_plant;
+
+CREATE OR REPLACE VIEW vw_plant_operations_aging_infrastructure AS
+SELECT
+  CAST(country AS varchar) AS country,
+  CAST(primary_fuel AS varchar) AS primary_fuel,
+  CAST(COUNT(*) AS integer) AS plant_count,
+  CAST(AVG(commissioning_year) AS double) AS avg_commissioning_year,
+  CAST(SUM(CASE WHEN commissioning_year < year(current_date) - 30 THEN 1 ELSE 0 END) AS integer) AS aging_30_plus_count,
+  CAST(SUM(CASE WHEN commissioning_year < year(current_date) - 40 THEN 1 ELSE 0 END) AS integer) AS aging_40_plus_count
+FROM dim_plant
+GROUP BY 1,2;
+
+CREATE OR REPLACE VIEW vw_plant_operations_capacity_utilization AS
+WITH generation_by_country_fuel AS (
+  SELECT
+    country,
+    primary_fuel,
+    year,
+    SUM(total_generation_gwh) AS total_generation_gwh
+  FROM fact_power_generation
+  GROUP BY 1,2,3
+),
+capacity_by_country_fuel AS (
+  SELECT
+    country,
+    primary_fuel,
+    SUM(total_capacity_mw) AS total_capacity_mw
+  FROM fact_plant_capacity
+  GROUP BY 1,2
+)
+SELECT
+  CAST(g.year AS integer) AS year,
+  CAST(g.country AS varchar) AS country,
+  CAST(g.primary_fuel AS varchar) AS primary_fuel,
+  CAST(c.total_capacity_mw AS double) AS total_capacity_mw,
+  CAST(g.total_generation_gwh AS double) AS total_generation_gwh,
+  CAST((c.total_capacity_mw * 8.76) AS double) AS theoretical_max_generation_gwh,
+  CAST(CASE
+    WHEN c.total_capacity_mw <= 0 THEN 0
+    ELSE g.total_generation_gwh / (c.total_capacity_mw * 8.76)
+  END AS double) AS utilization_ratio
+FROM generation_by_country_fuel g
+JOIN capacity_by_country_fuel c
+  ON g.country = c.country
+ AND g.primary_fuel = c.primary_fuel;

@@ -26,8 +26,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
       - name: Terraform fmt check
-        run: terraform -chdir=infra/terraform/environments/dev fmt -check
+        run: terraform -chdir=infra/terraform/environments/main fmt -check
       - name: Terraform init
-        run: terraform -chdir=infra/terraform/environments/dev init -backend=false
+        run: terraform -chdir=infra/terraform/environments/main init -backend=false
       - name: Terraform validate
-        run: terraform -chdir=infra/terraform/environments/dev validate
+        run: terraform -chdir=infra/terraform/environments/main validate

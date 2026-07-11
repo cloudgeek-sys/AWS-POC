@@ -1,14 +1,45 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 from pipelines.common.constants import RENEWABLE_FUELS
-from pipelines.common.io_utils import ensure_dir, is_s3_uri, join_uri, read_dataset, write_parquet
-from pipelines.common.metrics import emit_local_metric
+from pipelines.common.io_utils import ensure_dir, is_s3_uri, join_uri, read_dataset, write_json, write_parquet
+from pipelines.common.metrics import emit_metric
+
+
+def _mask_owner(value: object) -> str:
+    if pd.isna(value):
+        return "UNKNOWN"
+    raw = str(value).strip()
+    if raw == "":
+        return "UNKNOWN"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:10]
+    return f"OWNER_{digest}"
+
+
+def _schema_doc(df: pd.DataFrame, dataset_name: str) -> dict:
+    columns = []
+    for col in df.columns:
+        null_count = int(df[col].isna().sum())
+        columns.append(
+            {
+                "name": col,
+                "dtype": str(df[col].dtype),
+                "nullable": null_count > 0,
+                "null_count": null_count,
+            }
+        )
+    return {
+        "dataset": dataset_name,
+        "row_count": int(len(df)),
+        "column_count": int(len(df.columns)),
+        "columns": columns,
+    }
 
 
 def run(data_root: str) -> None:
@@ -27,7 +58,7 @@ def run(data_root: str) -> None:
         "longitude",
         "owner",
     ]].copy()
-    dim_plant["owner_masked"] = dim_plant["owner"].astype(str).str[:3] + "***"
+    dim_plant["owner_masked"] = dim_plant["owner"].apply(_mask_owner)
     dim_plant = dim_plant.drop(columns=["owner"], errors="ignore")
 
     dim_country = df[["country"]].drop_duplicates().reset_index(drop=True)
@@ -57,8 +88,33 @@ def run(data_root: str) -> None:
             .sum()
             .rename(columns={"estimated_generation_gwh": "total_generation_gwh", "event_year": "year"})
         )
+
+        if "event_month" in df.columns:
+            fact_generation_time = (
+                df.groupby(["event_year", "event_month"], dropna=False, as_index=False)["estimated_generation_gwh"]
+                .sum()
+                .rename(
+                    columns={
+                        "estimated_generation_gwh": "total_generation_gwh",
+                        "event_year": "year",
+                        "event_month": "month",
+                    }
+                )
+            )
+        else:
+            fact_generation_time = pd.DataFrame(columns=["year", "month", "total_generation_gwh"])
     else:
         fact_generation = pd.DataFrame(columns=["country", "primary_fuel", "year", "total_generation_gwh"])
+        fact_generation_time = pd.DataFrame(columns=["year", "month", "total_generation_gwh"])
+
+    if "continent" in df.columns and "sub_region" in df.columns:
+        fact_capacity_geo = (
+            df.groupby(["continent", "sub_region"], dropna=False, as_index=False)["capacity_mw"]
+            .sum()
+            .rename(columns={"capacity_mw": "total_capacity_mw"})
+        )
+    else:
+        fact_capacity_geo = pd.DataFrame(columns=["continent", "sub_region", "total_capacity_mw"])
 
     gold_dir = join_uri(data_root, "gold")
     if not is_s3_uri(gold_dir):
@@ -70,14 +126,85 @@ def run(data_root: str) -> None:
     write_parquet(dim_time, join_uri(gold_dir, "dim_time.parquet"))
     write_parquet(fact_capacity, join_uri(gold_dir, "fact_plant_capacity.parquet"))
     write_parquet(fact_generation, join_uri(gold_dir, "fact_power_generation.parquet"))
+    write_parquet(fact_generation_time, join_uri(gold_dir, "fact_power_generation_time.parquet"))
+    write_parquet(fact_capacity_geo, join_uri(gold_dir, "fact_capacity_geo.parquet"))
+
+    governance_dir = join_uri(data_root, "audit", "governance")
+    schema_documentation = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "datasets": [
+            _schema_doc(df, "silver.stg_power_plants"),
+            _schema_doc(dim_plant, "gold.dim_plant"),
+            _schema_doc(dim_country, "gold.dim_country"),
+            _schema_doc(dim_fuel, "gold.dim_fuel_type"),
+            _schema_doc(dim_time, "gold.dim_time"),
+            _schema_doc(fact_capacity, "gold.fact_plant_capacity"),
+            _schema_doc(fact_generation, "gold.fact_power_generation"),
+            _schema_doc(fact_generation_time, "gold.fact_power_generation_time"),
+            _schema_doc(fact_capacity_geo, "gold.fact_capacity_geo"),
+        ],
+    }
+    write_json(schema_documentation, join_uri(governance_dir, "schema_documentation.json"))
+
+    data_lineage = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "edges": [
+            {
+                "from": "bronze.wri_global_power_plants",
+                "to": "silver.stg_power_plants",
+                "transformation": "canonical_mapping + quality_validation + normalization + upsert",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.dim_plant",
+                "transformation": "dimension_projection",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.dim_country",
+                "transformation": "distinct_country",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.dim_fuel_type",
+                "transformation": "distinct_fuel + renewable_flag",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.dim_time",
+                "transformation": "execution_time_dimension",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.fact_plant_capacity",
+                "transformation": "aggregate_capacity_by_country_fuel",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.fact_power_generation",
+                "transformation": "aggregate_generation_by_country_fuel_year",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.fact_power_generation_time",
+                "transformation": "aggregate_generation_by_year_month",
+            },
+            {
+                "from": "silver.stg_power_plants",
+                "to": "gold.fact_capacity_geo",
+                "transformation": "aggregate_capacity_by_continent_sub_region",
+            },
+        ],
+    }
+    write_json(data_lineage, join_uri(governance_dir, "data_lineage.json"))
 
     renewable_total = fact_capacity["renewable_capacity_mw"].sum()
     total_capacity = fact_capacity["total_capacity_mw"].sum()
     renewable_ratio = float(renewable_total / total_capacity) if total_capacity else 0.0
 
     audit_dir = join_uri(data_root, "audit")
-    emit_local_metric(join_uri(audit_dir, "metrics.csv"), "gold_rows_fact_capacity", float(len(fact_capacity)))
-    emit_local_metric(join_uri(audit_dir, "metrics.csv"), "renewable_energy_ratio", renewable_ratio)
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_rows_fact_capacity", float(len(fact_capacity)))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "renewable_energy_ratio", renewable_ratio)
 
 
 def parse_args() -> argparse.Namespace:
