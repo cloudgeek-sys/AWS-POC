@@ -1,0 +1,23 @@
+{
+  "required_columns": [
+    "plant_id",
+    "plant_name",
+    "country",
+    "capacity_mw",
+    "primary_fuel"
+  ],
+  "numeric_columns": [
+    "capacity_mw",
+    "estimated_generation_gwh"
+  ],
+  "range_rules": {
+    "capacity_mw": {
+      "min": 0.0001,
+      "max": 1000000
+    },
+    "commissioning_year": {
+      "min": 1850,
+      "max": 2100
+    }
+  }
+}

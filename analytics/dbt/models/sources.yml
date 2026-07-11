@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: silver
+    schema: gppa_silver
+    tables:
+      - name: stg_power_plants
+
+  - name: gold
+    schema: gppa_gold
+    tables:
+      - name: fact_power_generation
+      - name: fact_plant_capacity

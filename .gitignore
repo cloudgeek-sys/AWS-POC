@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+
+# OS / Editor
+.DS_Store
+.vscode/settings.json
+
+# Data artifacts
+artifacts/
+logs/
+*.parquet
+*.feather
+
+# Local env
+.env

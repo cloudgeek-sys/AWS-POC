@@ -1,0 +1,7 @@
+plant_id,plant_name,country,capacity_mw,primary_fuel,commissioning_year,latitude,longitude,owner,estimated_generation_gwh,last_updated_at
+P001,Andes Hydro 1,Peru,420,Hydroelectric,2001,-13.5,-71.9,Andes Energy Corp,1100,2024-01-15T00:00:00Z
+P002,Delta Gas 7,USA,870,Natural Gas,1998,29.7,-95.3,Delta Utilities Group,2900,2024-01-15T00:00:00Z
+P003,Nord Wind Cluster,Denmark,320,Wind,2012,56.2,10.1,Nordic Renewables,980,2024-01-15T00:00:00Z
+P004,Central Coal A,India,1200,Coal,1985,22.6,88.4,Central Thermal Ltd,4100,2024-01-15T00:00:00Z
+P005,Sunridge Solar,Kenya,150,Solar,2019,-1.2,36.8,Sunridge Holdings,260,2024-01-15T00:00:00Z
+P006,Old Plant NullCap,Germany,,Gas,1972,50.1,8.6,Rhein Power,200,2024-01-15T00:00:00Z

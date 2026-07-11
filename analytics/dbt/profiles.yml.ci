@@ -1,0 +1,8 @@
+gppa_analytics:
+  target: ci
+  outputs:
+    ci:
+      type: duckdb
+      path: gppa_ci.duckdb
+      threads: 4
+      schema: main

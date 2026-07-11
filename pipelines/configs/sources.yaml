@@ -1,0 +1,18 @@
+sources:
+  - source_name: wri_power_plants
+    format: csv
+    path: samples/raw/power_plants/wri_power_plants_2024.csv
+    primary_key: plant_id
+    event_time_column: last_updated_at
+
+  - source_name: opsd_generation
+    format: csv
+    path: samples/raw/generation/opsd_generation_2024.csv
+    primary_key: generation_id
+    event_time_column: generation_date
+
+  - source_name: fuel_reference
+    format: csv
+    path: samples/raw/fuel_types/fuel_types_reference.csv
+    primary_key: fuel_raw
+    event_time_column: updated_at

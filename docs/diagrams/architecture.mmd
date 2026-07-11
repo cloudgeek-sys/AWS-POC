@@ -1,0 +1,24 @@
+flowchart LR
+    SRC[Public Datasets] --> ING[Glue Bronze Ingestion Job]
+    ING --> BRZ[S3 Bronze]
+
+    BRZ --> TRN[Glue Silver Transform Job]
+    TRN --> SLV[S3 Silver]
+    TRN --> QTN[S3 Quarantine]
+    ING --> AUD[S3 Audit and Checkpoints]
+    TRN --> AUD
+
+    SLV --> GLD_JOB[Glue Gold Build Job]
+    GLD_JOB --> GLD[S3 Gold]
+
+    GLD --> ATH[Athena Workgroup]
+    GLD --> BI[QuickSight and Superset Datasets]
+
+    SFN[Step Functions State Machine] --> ING
+    SFN --> TRN
+    SFN --> GLD_JOB
+
+    MET[Pipeline Metrics] --> CW[CloudWatch Alarms]
+    ING --> MET
+    TRN --> MET
+    GLD_JOB --> MET

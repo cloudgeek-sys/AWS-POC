@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: fact_power_generation
+    description: Country and fuel level generated power metrics.
+    columns:
+      - name: country
+        data_tests:
+          - not_null
+      - name: primary_fuel
+        data_tests:
+          - not_null
+      - name: total_generation_gwh
+        data_tests:
+          - not_null
+
+  - name: fact_plant_capacity
+    description: Country and fuel level plant capacity aggregates.
+    columns:
+      - name: country
+        data_tests:
+          - not_null
+      - name: primary_fuel
+        data_tests:
+          - not_null
+      - name: total_capacity_mw
+        data_tests:
+          - not_null

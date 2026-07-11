@@ -1,0 +1,6 @@
+generation_id,plant_id,generation_date,generation_gwh,source
+G001,P001,2024-01-01,95,opsd
+G002,P002,2024-01-01,250,opsd
+G003,P003,2024-01-01,87,opsd
+G004,P004,2024-01-01,380,opsd
+G005,P005,2024-01-01,22,opsd

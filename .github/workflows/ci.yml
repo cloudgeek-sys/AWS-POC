@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipelines/requirements.txt
+      - name: Run tests
+        run: pytest pipelines/tests -q
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform fmt check
+        run: terraform -chdir=infra/terraform/environments/dev fmt -check
+      - name: Terraform init
+        run: terraform -chdir=infra/terraform/environments/dev init -backend=false
+      - name: Terraform validate
+        run: terraform -chdir=infra/terraform/environments/dev validate

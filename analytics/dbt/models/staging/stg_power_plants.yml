@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: stg_power_plants
+    description: Standardized and validated power plant records from Silver layer.
+    columns:
+      - name: plant_id
+        data_tests:
+          - not_null
+          - unique
+      - name: plant_name
+        data_tests:
+          - not_null
+      - name: country
+        data_tests:
+          - not_null
+      - name: primary_fuel
+        data_tests:
+          - not_null
+      - name: capacity_mw
+        data_tests:
+          - not_null

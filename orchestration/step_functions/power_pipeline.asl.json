@@ -1,0 +1,46 @@
+{
+  "Comment": "Global Power Plant Analytics Pipeline",
+  "StartAt": "BronzeIngestion",
+  "States": {
+    "BronzeIngestion": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.jobs.ingest"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Next": "SilverTransform"
+    },
+    "SilverTransform": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.jobs.silver"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Next": "GoldBuild"
+    },
+    "GoldBuild": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.jobs.gold"
+      },
+      "End": true
+    }
+  }
+}
