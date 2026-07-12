@@ -23,11 +23,11 @@ module "iam" {
 module "glue" {
   source = "../../modules/glue"
 
-  project_name     = var.project_name
-  environment      = var.environment
-  data_lake_bucket = module.s3_lake.bucket_name
-  glue_role_arn    = module.iam.glue_role_arn
-  job_worker_count = var.glue_job_worker_count
+  project_name            = var.project_name
+  environment             = var.environment
+  data_lake_bucket        = module.s3_lake.bucket_name
+  glue_role_arn           = module.iam.glue_role_arn
+  job_worker_count        = var.glue_job_worker_count
   max_concurrent_job_runs = var.max_concurrent_job_runs
 }
 
@@ -71,12 +71,12 @@ module "step_functions" {
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  project_name           = var.project_name
-  environment            = var.environment
-  step_function_arn      = module.step_functions.state_machine_arn
-  ingest_job_name        = module.glue.ingest_job_name
-  silver_job_name        = module.glue.silver_job_name
-  gold_job_name          = module.glue.gold_job_name
-  visualization_job_name = module.glue.visualization_job_name
+  project_name             = var.project_name
+  environment              = var.environment
+  step_function_arn        = module.step_functions.state_machine_arn
+  ingest_job_name          = module.glue.ingest_job_name
+  silver_job_name          = module.glue.silver_job_name
+  gold_job_name            = module.glue.gold_job_name
+  visualization_job_name   = module.glue.visualization_job_name
   alarm_notification_email = var.alarm_notification_email
 }
