@@ -74,7 +74,16 @@ jobs:
           SFN_ARN="$(terraform -chdir="$TF_ENV_DIR" output -raw step_function_arn)"
           BUCKET="$(terraform -chdir="$TF_ENV_DIR" output -raw data_lake_bucket)"
           aws stepfunctions describe-state-machine --state-machine-arn "$SFN_ARN" --query '{name:name,status:status}' --output json
-          aws s3 ls "s3://$BUCKET/code/pipelines/" --recursive | head
+          aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "code/pipelines/" --max-items 20 --query 'Contents[].{LastModified:LastModified,Size:Size,Key:Key}' --output table
+
+      - name: Apply Athena dashboard views
+        run: |
+          WORKGROUP="$(terraform -chdir="$TF_ENV_DIR" output -raw athena_workgroup)"
+          BUCKET="$(terraform -chdir="$TF_ENV_DIR" output -raw data_lake_bucket)"
+          ATHENA_WORKGROUP="$WORKGROUP" \
+          ATHENA_DATABASE="gppa_main_analytics" \
+          ATHENA_OUTPUT_LOCATION="s3://$BUCKET/athena/results/" \
+          scripts/run_athena_dashboard_views.sh
 
       - name: Post-deploy smoke checks
         run: scripts/post_deploy_smoke_check.sh gppa-main --report-file smoke-check-report-main.json
