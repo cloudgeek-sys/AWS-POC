@@ -266,6 +266,22 @@ data "aws_iam_policy_document" "terraform_deployer" {
   }
 
   statement {
+    sid = "GlueCatalogAccessForAthenaDDL"
+
+    actions = [
+      "glue:GetTable",
+      "glue:GetTables",
+      "glue:CreateTable",
+      "glue:UpdateTable",
+      "glue:DeleteTable",
+      "glue:GetPartition",
+      "glue:GetPartitions"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
     sid = "StepFunctionsCreateAndValidate"
 
     actions = [
