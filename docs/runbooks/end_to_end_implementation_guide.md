@@ -96,7 +96,7 @@ Why: isolate dependencies and ensure repeatable execution.
 Commands:
 
 ```bash
-cd /Users/Sagar/AWS-POC
+cd /home/sagp/GPP_POC
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r pipelines/requirements.txt
