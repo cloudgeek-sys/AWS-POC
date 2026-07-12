@@ -19,6 +19,8 @@ Production-style, cost-aware, medallion lakehouse pipeline for global power plan
 - Silver: standardized, deduplicated, conformed records
 - Gold: dimensional and fact tables for BI and operations
 
+![Architecture Diagram](docs/diagrams/Architecture-Diagram.png)
+
 See docs:
 
 - docs/diagrams/architecture.md
@@ -31,9 +33,9 @@ See docs:
 
 | Deliverable | Status | Evidence |
 | --- | --- | --- |
-| Architecture Diagram | Available | `docs/diagrams/architecture.md`, `docs/diagrams/architecture.mmd` |
+| Architecture Diagram | Available | `docs/diagrams/Architecture-Diagram.png`, `docs/diagrams/architecture.md`, `docs/diagrams/architecture.mmd` |
 | Network Diagram | Available | `docs/diagrams/network.mmd` |
-| Terraform Code | Available | `infra/terraform/modules`, `infra/terraform/environments/<environment>` |
+| Terraform Code | Available | `infra/terraform/modules`, `infra/terraform/environments/main` |
 | ETL Pipeline | Available | `pipelines/bronze`, `pipelines/silver`, `pipelines/gold` |
 | Data Models | Available | Gold facts/dimensions in `pipelines/gold/build_gold_tables.py` |
 | Schema Documentation | Available | `artifacts/local/audit/governance/schema_documentation.json` |
@@ -275,43 +277,61 @@ pytest pipelines/tests -q
 Terraform state is configured to use S3 remote state:
 
 - Bucket: `tf-state-371170753734-us-east-1-an`
-- Key: `aws-poc/<environment>/terraform.tfstate`
+- Key: `aws-poc/main/terraform.tfstate`
 - Region: `us-east-1`
 
 If you previously used local state, run this once to migrate state to S3:
 
 ```bash
-terraform -chdir=infra/terraform/environments/<environment> init -reconfigure -migrate-state
+terraform -chdir=infra/terraform/environments/main init -reconfigure -migrate-state
 ```
 
 ```bash
-cd infra/terraform/environments/<environment>
+cd infra/terraform/environments/main
 cp terraform.tfvars.example terraform.tfvars
 terraform init
 terraform plan
 terraform apply
 ```
 
+### 5.0.1 Deployed resource inventory (current)
+
+- AWS Account: `371170753734`
+- AWS Region: `us-east-1`
+- Step Functions ARN: `arn:aws:states:us-east-1:371170753734:stateMachine:gppa-main-power-pipeline`
+- Data lake bucket: `gppa-main-lake-platform-20260710212811`
+- Athena workgroup: `gppa-main-wg`
+- Glue jobs:
+  - `gppa-main-bronze-ingest-power-plants`
+  - `gppa-main-silver-transform-power-plants`
+  - `gppa-main-gold-build-power-analytics`
+  - `gppa-main-visualizations-build`
+- Glue crawlers:
+  - `gppa-main-bronze-crawler`
+  - `gppa-main-silver-crawler`
+  - `gppa-main-gold-crawler`
+- QuickSight Athena data source ARN: `arn:aws:quicksight:us-east-1:371170753734:datasource/gppa_main_athena`
+
 ### 5.1 From-scratch run sequence (single environment)
 
 Use this exact order for a full fresh bootstrap:
 
-1. `terraform -chdir=infra/terraform/environments/<environment> init`
-1. `terraform -chdir=infra/terraform/environments/<environment> plan`
-1. `terraform -chdir=infra/terraform/environments/<environment> apply`
-1. `scripts/upload_glue_code.sh --env-dir infra/terraform/environments/<environment>`
+1. `terraform -chdir=infra/terraform/environments/main init`
+1. `terraform -chdir=infra/terraform/environments/main plan`
+1. `terraform -chdir=infra/terraform/environments/main apply`
+1. `scripts/upload_glue_code.sh --env-dir infra/terraform/environments/main`
 1. Start Step Functions execution using output ARN:
 
 ```bash
 aws stepfunctions start-execution \
-  --state-machine-arn "$(terraform -chdir=infra/terraform/environments/<environment> output -raw step_function_arn)" \
+  --state-machine-arn "$(terraform -chdir=infra/terraform/environments/main output -raw step_function_arn)" \
   --name "gppa-run-$(date +%s)"
 ```
 
 1. Validate Bronze/Silver/Gold/Audit objects in S3:
 
 ```bash
-BUCKET="$(terraform -chdir=infra/terraform/environments/<environment> output -raw data_lake_bucket)"
+BUCKET="$(terraform -chdir=infra/terraform/environments/main output -raw data_lake_bucket)"
 aws s3 ls "s3://$BUCKET/bronze/" --recursive | head
 aws s3 ls "s3://$BUCKET/silver/" --recursive | head
 aws s3 ls "s3://$BUCKET/gold/" --recursive | head
@@ -323,13 +343,13 @@ aws s3 ls "s3://$BUCKET/audit/" --recursive | head
 After Terraform apply, upload pipeline scripts to the S3 code prefix expected by Glue jobs:
 
 ```bash
-scripts/upload_glue_code.sh --env-dir infra/terraform/environments/<environment>
+scripts/upload_glue_code.sh --env-dir infra/terraform/environments/main
 ```
 
 Or provide bucket directly:
 
 ```bash
-scripts/upload_glue_code.sh --bucket <your-lake-bucket>
+scripts/upload_glue_code.sh --bucket gppa-main-lake-platform-20260710212811
 ```
 
 ## 5.3 CI/CD deploy secrets
@@ -352,9 +372,34 @@ CI/CD coverage:
 Implementation mapping:
 
 - Automated deployment: `.github/workflows/deploy-main.yml` triggers on the default branch and supports `workflow_dispatch`.
-- Environment configs: deploy workflow validates `infra/terraform/environments/<environment>/terraform.tfvars`.
+- Environment configs: deploy workflow validates `infra/terraform/environments/main/terraform.tfvars`.
 - Testing: deploy workflow runs `pytest pipelines/tests -q` before Terraform apply.
 - Validation: deploy workflow runs Terraform `fmt`/`validate` and post-deploy checks for Step Functions + S3 code path.
+
+## 5.3.1 CloudWatch alarm email notifications
+
+CloudWatch alarms are wired to SNS email notifications using Terraform.
+
+- Notification email configured: `sagarbabupullagura34@gmail.com`
+- SNS topic name: `gppa-main-alarm-notifications`
+- Alarm transitions that notify: `ALARM` and `OK`
+
+Important: SNS email subscriptions require manual confirmation.
+
+1. Open the AWS SNS confirmation email sent to `sagarbabupullagura34@gmail.com`.
+1. Click `Confirm subscription`.
+1. Verify subscription status becomes `Confirmed` in AWS SNS.
+
+Until confirmation is completed, alarm emails will not be delivered.
+
+## 5.3.2 Step Functions and Glue concurrency behavior
+
+To reduce `ConcurrentRunsExceededException` when executions overlap:
+
+- Each Glue job allows up to `2` concurrent runs (`max_concurrent_job_runs = 2`).
+- Step Functions includes targeted retry for `Glue.ConcurrentRunsExceededException` with longer backoff (`60s`, up to `10` attempts).
+
+If this still occurs under peak triggering, avoid starting overlapping executions or increase `max_concurrent_job_runs` based on Glue capacity/cost constraints.
 
 ## 5.4 Historical load format support
 

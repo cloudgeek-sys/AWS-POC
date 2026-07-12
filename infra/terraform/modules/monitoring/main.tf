@@ -1,5 +1,20 @@
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
+  alarm_notification_enabled = var.alarm_notification_email != null && trimspace(var.alarm_notification_email) != ""
+}
+
+resource "aws_sns_topic" "alarm_notifications" {
+  count = local.alarm_notification_enabled ? 1 : 0
+
+  name = "${local.name_prefix}-alarm-notifications"
+}
+
+resource "aws_sns_topic_subscription" "alarm_notifications_email" {
+  count = local.alarm_notification_enabled ? 1 : 0
+
+  topic_arn = aws_sns_topic.alarm_notifications[0].arn
+  protocol  = "email"
+  endpoint  = var.alarm_notification_email
 }
 
 resource "aws_cloudwatch_metric_alarm" "pipeline_execution_failed" {
@@ -13,6 +28,8 @@ resource "aws_cloudwatch_metric_alarm" "pipeline_execution_failed" {
   threshold           = 0
   alarm_description   = "Triggers when pipeline Step Functions executions fail"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     StateMachineArn = var.step_function_arn
@@ -30,6 +47,8 @@ resource "aws_cloudwatch_metric_alarm" "pipeline_execution_time" {
   threshold           = 3600000
   alarm_description   = "Triggers when pipeline execution time exceeds 60 minutes"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     StateMachineArn = var.step_function_arn
@@ -47,6 +66,8 @@ resource "aws_cloudwatch_metric_alarm" "glue_ingest_failed" {
   threshold           = 0
   alarm_description   = "Triggers when Glue ingest stage has failed jobs"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     JobName = var.ingest_job_name
@@ -64,6 +85,8 @@ resource "aws_cloudwatch_metric_alarm" "glue_silver_failed" {
   threshold           = 0
   alarm_description   = "Triggers when Glue silver stage has failed jobs"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     JobName = var.silver_job_name
@@ -81,6 +104,8 @@ resource "aws_cloudwatch_metric_alarm" "glue_gold_failed" {
   threshold           = 0
   alarm_description   = "Triggers when Glue gold stage has failed jobs"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     JobName = var.gold_job_name
@@ -98,6 +123,8 @@ resource "aws_cloudwatch_metric_alarm" "glue_visualization_failed" {
   threshold           = 0
   alarm_description   = "Triggers when Glue visualization stage has failed jobs"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     JobName = var.visualization_job_name
@@ -115,6 +142,8 @@ resource "aws_cloudwatch_metric_alarm" "dq_failure_alarm" {
   threshold           = 0
   alarm_description   = "Triggers when data quality failures are observed"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     Project     = var.project_name
@@ -133,6 +162,8 @@ resource "aws_cloudwatch_metric_alarm" "freshness_alarm" {
   threshold           = 24
   alarm_description   = "Triggers when data ingestion lag exceeds 24 hours"
   treat_missing_data  = "missing"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     Project     = var.project_name
@@ -151,6 +182,8 @@ resource "aws_cloudwatch_metric_alarm" "processing_rows_low" {
   threshold           = 0
   alarm_description   = "Triggers when bronze stage ingests zero rows"
   treat_missing_data  = "breaching"
+  alarm_actions       = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
+  ok_actions          = local.alarm_notification_enabled ? [aws_sns_topic.alarm_notifications[0].arn] : []
 
   dimensions = {
     Project     = var.project_name

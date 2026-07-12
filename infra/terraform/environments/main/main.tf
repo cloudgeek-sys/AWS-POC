@@ -28,6 +28,7 @@ module "glue" {
   data_lake_bucket = module.s3_lake.bucket_name
   glue_role_arn    = module.iam.glue_role_arn
   job_worker_count = var.glue_job_worker_count
+  max_concurrent_job_runs = var.max_concurrent_job_runs
 }
 
 module "athena" {
@@ -77,4 +78,5 @@ module "monitoring" {
   silver_job_name        = module.glue.silver_job_name
   gold_job_name          = module.glue.gold_job_name
   visualization_job_name = module.glue.visualization_job_name
+  alarm_notification_email = var.alarm_notification_email
 }

@@ -568,6 +568,59 @@ resource "aws_iam_user_policy_attachment" "terraform_logs_deployer_user_attachme
   policy_arn = aws_iam_policy.terraform_logs_deployer[0].arn
 }
 
+data "aws_iam_policy_document" "terraform_sns_deployer" {
+  statement {
+    sid = "SNSAlarmNotificationsManagement"
+
+    actions = [
+      "sns:CreateTopic",
+      "sns:DeleteTopic",
+      "sns:GetSubscriptionAttributes",
+      "sns:GetTopicAttributes",
+      "sns:ListTagsForResource",
+      "sns:SetTopicAttributes",
+      "sns:TagResource",
+      "sns:UntagResource",
+      "sns:Subscribe",
+      "sns:Unsubscribe",
+      "sns:ListSubscriptionsByTopic"
+    ]
+
+    resources = [
+      "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${local.name_prefix}-*"
+    ]
+  }
+
+  statement {
+    sid = "SNSListTopics"
+
+    actions = ["sns:ListTopics"]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "terraform_sns_deployer" {
+  count = var.deployer_policy_enabled ? 1 : 0
+
+  name   = "${local.name_prefix}-terraform-sns-deployer"
+  policy = data.aws_iam_policy_document.terraform_sns_deployer.json
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_sns_deployer_role_attachment" {
+  count = var.deployer_policy_enabled && var.deployer_role_name != null ? 1 : 0
+
+  role       = var.deployer_role_name
+  policy_arn = aws_iam_policy.terraform_sns_deployer[0].arn
+}
+
+resource "aws_iam_user_policy_attachment" "terraform_sns_deployer_user_attachment" {
+  count = var.deployer_policy_enabled && var.deployer_user_name != null ? 1 : 0
+
+  user       = var.deployer_user_name
+  policy_arn = aws_iam_policy.terraform_sns_deployer[0].arn
+}
+
 data "aws_iam_policy_document" "persona_assume_user" {
   count = var.deployer_user_name != null ? 1 : 0
 
@@ -830,6 +883,13 @@ resource "aws_iam_role_policy_attachment" "persona_data_engineer_terraform_logs_
 
   role       = aws_iam_role.persona["data_engineer"].name
   policy_arn = aws_iam_policy.terraform_logs_deployer[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "persona_data_engineer_terraform_sns_deployer" {
+  count = var.deployer_user_name != null && var.deployer_policy_enabled ? 1 : 0
+
+  role       = aws_iam_role.persona["data_engineer"].name
+  policy_arn = aws_iam_policy.terraform_sns_deployer[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "persona_analyst" {

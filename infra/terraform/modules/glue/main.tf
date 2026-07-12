@@ -68,6 +68,10 @@ resource "aws_glue_job" "ingest" {
   name     = "${local.name_prefix}-bronze-ingest-power-plants"
   role_arn = var.glue_role_arn
 
+  execution_property {
+    max_concurrent_runs = var.max_concurrent_job_runs
+  }
+
   command {
     script_location = "s3://${var.data_lake_bucket}/code/pipelines/bronze/ingest_power_plants.py"
     python_version  = "3"
@@ -97,6 +101,10 @@ resource "aws_glue_job" "silver" {
   name     = "${local.name_prefix}-silver-transform-power-plants"
   role_arn = var.glue_role_arn
 
+  execution_property {
+    max_concurrent_runs = var.max_concurrent_job_runs
+  }
+
   command {
     script_location = "s3://${var.data_lake_bucket}/code/pipelines/silver/transform_power_plants.py"
     python_version  = "3"
@@ -124,6 +132,10 @@ resource "aws_glue_job" "gold" {
   name     = "${local.name_prefix}-gold-build-power-analytics"
   role_arn = var.glue_role_arn
 
+  execution_property {
+    max_concurrent_runs = var.max_concurrent_job_runs
+  }
+
   command {
     script_location = "s3://${var.data_lake_bucket}/code/pipelines/gold/build_gold_tables.py"
     python_version  = "3"
@@ -149,6 +161,10 @@ resource "aws_glue_job" "gold" {
 resource "aws_glue_job" "visualizations" {
   name     = "${local.name_prefix}-visualizations-build"
   role_arn = var.glue_role_arn
+
+  execution_property {
+    max_concurrent_runs = var.max_concurrent_job_runs
+  }
 
   command {
     script_location = "s3://${var.data_lake_bucket}/code/pipelines/gold/build_visualizations.py"

@@ -13,7 +13,16 @@ import pandas as pd
 import pyarrow.parquet as pq
 import yaml
 
-from pipelines.common.io_utils import file_hash, join_uri, read_dataset, read_text, write_csv, write_parquet
+from pipelines.common.io_utils import (
+    file_hash,
+    is_s3_uri,
+    join_uri,
+    list_s3_keys,
+    read_dataset,
+    read_text,
+    write_csv,
+    write_parquet,
+)
 from pipelines.common.metrics import emit_metric
 from pipelines.common.state_store import StateStore
 
@@ -177,6 +186,17 @@ def _safe_read_previous_output(path: str | None) -> pd.DataFrame | None:
         return None
 
 
+def _output_exists(path: str | None) -> bool:
+    if not path:
+        return False
+    if is_s3_uri(path):
+        try:
+            return len(list_s3_keys(path)) > 0
+        except Exception:
+            return False
+    return Path(path).exists()
+
+
 def _compute_changed_records(current: pd.DataFrame, previous: pd.DataFrame | None, primary_key: str | None) -> pd.DataFrame:
     if previous is None or not primary_key or primary_key not in current.columns:
         return current
@@ -292,7 +312,10 @@ def _ingest_one_source(
     spike_threshold_ratio = float(source.get("volume_spike_threshold_ratio", 2.0))
     drop_threshold_ratio = float(source.get("volume_drop_threshold_ratio", 0.5))
 
-    if not force_replay and src_state.get("last_file_hash") == src_hash:
+    previous_output_path = src_state.get("last_output_path")
+    has_previous_output = _output_exists(previous_output_path)
+
+    if not force_replay and src_state.get("last_file_hash") == src_hash and has_previous_output:
         state_store.upsert_source(
             source_name,
             {

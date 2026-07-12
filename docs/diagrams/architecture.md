@@ -8,6 +8,15 @@
 - Idempotent and replay-safe ingestion semantics
 - Observability-first (data quality + freshness + latency)
 
+## Deployed baseline (current)
+
+- AWS Account: `371170753734`
+- AWS Region: `us-east-1`
+- Data lake bucket: `gppa-main-lake-platform-20260710212811`
+- Step Functions ARN: `arn:aws:states:us-east-1:371170753734:stateMachine:gppa-main-power-pipeline`
+- Athena workgroup: `gppa-main-wg`
+- QuickSight Athena data source ARN: `arn:aws:quicksight:us-east-1:371170753734:datasource/gppa_main_athena`
+
 ## Logical architecture
 
 ```mermaid
@@ -40,6 +49,7 @@ flowchart LR
 ## Physical AWS components
 
 - Amazon S3 data lake buckets/prefixes:
+  - bucket: gppa-main-lake-platform-20260710212811
   - bronze/
   - silver/
   - gold/
@@ -50,16 +60,20 @@ flowchart LR
   - gppa_silver
   - gppa_gold
 - AWS Glue jobs:
-  - bronze_ingest_power_plants
-  - silver_transform_power_plants
-  - gold_build_power_analytics
-  - visualizations_build
+  - gppa-main-bronze-ingest-power-plants
+  - gppa-main-silver-transform-power-plants
+  - gppa-main-gold-build-power-analytics
+  - gppa-main-visualizations-build
+- AWS Glue crawlers:
+  - gppa-main-bronze-crawler
+  - gppa-main-silver-crawler
+  - gppa-main-gold-crawler
 - AWS Step Functions:
-  - state machine for orchestration and retry/replay
+  - arn:aws:states:us-east-1:371170753734:stateMachine:gppa-main-power-pipeline
 - Amazon Athena:
-  - interactive SQL and BI views over Gold data
+  - workgroup: gppa-main-wg
 - Amazon QuickSight:
-  - dashboard and KPI visualization layer
+  - data source: arn:aws:quicksight:us-east-1:371170753734:datasource/gppa_main_athena
 - Amazon CloudWatch:
   - metrics, alarms, and logs
 

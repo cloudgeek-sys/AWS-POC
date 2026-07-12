@@ -27,6 +27,12 @@ variable "glue_job_worker_count" {
   default     = 2
 }
 
+variable "max_concurrent_job_runs" {
+  description = "Maximum concurrent runs per Glue job"
+  type        = number
+  default     = 2
+}
+
 variable "schedule_expression" {
   description = "EventBridge schedule expression"
   type        = string
@@ -100,4 +106,10 @@ variable "unmanaged_quicksight_dataset_arns" {
   description = "Dataset ARN map to expose in outputs when QuickSight datasets are unmanaged"
   type        = map(string)
   default     = {}
+}
+
+variable "alarm_notification_email" {
+  description = "Email address for CloudWatch alarm notifications"
+  type        = string
+  default     = null
 }

@@ -43,9 +43,20 @@ MANDATORY_NULL_CHECK_FIELDS = [
 def _latest_bronze_file(bronze_dir: str, source_name: str) -> str:
     if is_s3_uri(bronze_dir):
         parquet_keys = list_s3_keys(bronze_dir, suffix=".parquet")
-        matches = sorted(k for k in parquet_keys if k.rsplit("/", 1)[-1].startswith(f"{source_name}_"))
+        matches = sorted(
+            k
+            for k in parquet_keys
+            if (
+                k.rsplit("/", 1)[-1].startswith(f"{source_name}_")
+                or k.rsplit("/", 1)[-1] == f"{source_name}.parquet"
+            )
+        )
     else:
-        matches = sorted(str(p) for p in Path(bronze_dir).rglob(f"{source_name}_*.parquet"))
+        matches = sorted(
+            str(p)
+            for p in Path(bronze_dir).rglob("*.parquet")
+            if (p.name.startswith(f"{source_name}_") or p.name == f"{source_name}.parquet")
+        )
     if not matches:
         raise FileNotFoundError(f"No bronze data found for source {source_name}")
     return matches[-1]

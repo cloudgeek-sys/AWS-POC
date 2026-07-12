@@ -30,6 +30,12 @@ resource "aws_sfn_state_machine" "pipeline" {
         }
         Retry = [
           {
+            ErrorEquals     = ["Glue.ConcurrentRunsExceededException"]
+            IntervalSeconds = 60
+            MaxAttempts     = 10
+            BackoffRate     = 1.5
+          },
+          {
             ErrorEquals     = ["States.ALL"]
             IntervalSeconds = 10
             MaxAttempts     = 2
@@ -45,6 +51,12 @@ resource "aws_sfn_state_machine" "pipeline" {
           JobName = var.silver_job_name
         }
         Retry = [
+          {
+            ErrorEquals     = ["Glue.ConcurrentRunsExceededException"]
+            IntervalSeconds = 60
+            MaxAttempts     = 10
+            BackoffRate     = 1.5
+          },
           {
             ErrorEquals     = ["States.ALL"]
             IntervalSeconds = 10
@@ -62,6 +74,12 @@ resource "aws_sfn_state_machine" "pipeline" {
         }
         Retry = [
           {
+            ErrorEquals     = ["Glue.ConcurrentRunsExceededException"]
+            IntervalSeconds = 60
+            MaxAttempts     = 10
+            BackoffRate     = 1.5
+          },
+          {
             ErrorEquals     = ["States.ALL"]
             IntervalSeconds = 10
             MaxAttempts     = 2
@@ -77,6 +95,12 @@ resource "aws_sfn_state_machine" "pipeline" {
           JobName = var.visualization_job_name
         }
         Retry = [
+          {
+            ErrorEquals     = ["Glue.ConcurrentRunsExceededException"]
+            IntervalSeconds = 60
+            MaxAttempts     = 10
+            BackoffRate     = 1.5
+          },
           {
             ErrorEquals     = ["States.ALL"]
             IntervalSeconds = 10

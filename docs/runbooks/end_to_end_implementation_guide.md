@@ -27,6 +27,24 @@ You are implementing a medallion architecture with AWS-native orchestration and 
 
 Code and infrastructure are already scaffolded in this repository.
 
+## 2.1 Deployed resource baseline (current)
+
+- AWS Account: `371170753734`
+- AWS Region: `us-east-1`
+- Step Functions state machine ARN: `arn:aws:states:us-east-1:371170753734:stateMachine:gppa-main-power-pipeline`
+- Data lake bucket: `gppa-main-lake-platform-20260710212811`
+- Athena workgroup: `gppa-main-wg`
+- Glue jobs:
+  - `gppa-main-bronze-ingest-power-plants`
+  - `gppa-main-silver-transform-power-plants`
+  - `gppa-main-gold-build-power-analytics`
+  - `gppa-main-visualizations-build`
+- Glue crawlers:
+  - `gppa-main-bronze-crawler`
+  - `gppa-main-silver-crawler`
+  - `gppa-main-gold-crawler`
+- QuickSight Athena data source ARN: `arn:aws:quicksight:us-east-1:371170753734:datasource/gppa_main_athena`
+
 ---
 
 ## 3. Prerequisites
@@ -78,7 +96,7 @@ Why: isolate dependencies and ensure repeatable execution.
 Commands:
 
 ```bash
-cd /Users/user/AWS-POC
+cd /Users/Sagar/AWS-POC
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r pipelines/requirements.txt
@@ -195,10 +213,11 @@ What gets provisioned:
 
 - S3 lake bucket and lifecycle policy
 - IAM roles/policies for Glue and Step Functions
-- Glue catalog databases and three Glue jobs
+- Glue catalog databases, crawlers, and four Glue jobs (Bronze/Silver/Gold/Visualization)
 - Athena workgroup
 - Step Functions state machine
-- CloudWatch alarms
+- CloudWatch alarms and log groups
+- QuickSight Athena data source and datasets
 
 Success criteria:
 
@@ -220,12 +239,12 @@ scripts/upload_glue_code.sh --env-dir infra/terraform/environments/main
 Alternative command:
 
 ```bash
-scripts/upload_glue_code.sh --bucket <your-lake-bucket>
+scripts/upload_glue_code.sh --bucket gppa-main-lake-platform-20260710212811
 ```
 
 What this does:
 
-- Syncs pipelines/ to s3://[bucket-name]/code/pipelines
+- Syncs pipelines/ to s3://gppa-main-lake-platform-20260710212811/code/pipelines
 - Excludes tests and cache artifacts
 
 Success criteria:
@@ -248,8 +267,8 @@ Option B: AWS CLI
 
 ```bash
 aws stepfunctions start-execution \
-  --state-machine-arn <step_function_arn> \
-  --name gppa-main-run-001
+  --state-machine-arn arn:aws:states:us-east-1:371170753734:stateMachine:gppa-main-power-pipeline \
+  --name gppa-main-run-$(date +%s)
 ```
 
 Execution order:
@@ -384,6 +403,29 @@ Recommendation:
 
 - Apply changes only after main validation artifacts are reviewed
 - Keep parameter and schedule changes explicit in version control
+
+### Alerting operations (email)
+
+- CloudWatch alarms publish to SNS topic: `gppa-main-alarm-notifications`
+- Email endpoint configured: `sagarbabupullagura34@gmail.com`
+
+Important:
+
+1. Email delivery starts only after SNS subscription confirmation.
+1. Confirm by opening the SNS email and selecting `Confirm subscription`.
+
+### Concurrency operations (Step Functions -> Glue)
+
+The deployment includes these protections against Glue concurrency contention:
+
+- Glue job execution property `max_concurrent_runs = 2`
+- Step Functions retry on `Glue.ConcurrentRunsExceededException` (60s interval, 10 attempts, 1.5x backoff)
+
+If `ConcurrentRunsExceededException` still appears:
+
+1. Check whether another pipeline execution is already in progress.
+1. Wait for current Glue job completion and rerun Step Functions.
+1. Increase `max_concurrent_job_runs` in `infra/terraform/environments/main/terraform.tfvars` only if cost/quota allows.
 
 ---
 

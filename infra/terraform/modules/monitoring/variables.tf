@@ -5,3 +5,9 @@ variable "ingest_job_name" { type = string }
 variable "silver_job_name" { type = string }
 variable "gold_job_name" { type = string }
 variable "visualization_job_name" { type = string }
+
+variable "alarm_notification_email" {
+	description = "Email address to subscribe for CloudWatch alarm notifications"
+	type        = string
+	default     = null
+}

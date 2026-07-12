@@ -1,6 +1,10 @@
 flowchart LR
     %% ------------------------------------------------------------
     %% Global Power Plant Analytics Platform - AWS Architecture
+    %% Account: 371170753734 | Region: us-east-1
+    %% Data lake bucket: gppa-main-lake-platform-20260710212811
+    %% Step Functions ARN: arn:aws:states:us-east-1:371170753734:stateMachine:gppa-main-power-pipeline
+    %% Athena workgroup: gppa-main-wg
     %% ------------------------------------------------------------
 
     subgraph DEVOPS[CI CD]
@@ -10,14 +14,14 @@ flowchart LR
     end
 
     subgraph ORCH[AWS Orchestration]
-        SFN[AWS Step Functions State Machine]
+        SFN[AWS Step Functions gppa-main-power-pipeline]
     end
 
     subgraph ETL[AWS Processing]
-        ING[AWS Glue Job Bronze Ingest]
-        TRN[AWS Glue Job Silver Transform]
-        GLD_JOB[AWS Glue Job Gold Build]
-        VIZ[AWS Glue Job Visualization Build]
+        ING[AWS Glue Job gppa-main-bronze-ingest-power-plants]
+        TRN[AWS Glue Job gppa-main-silver-transform-power-plants]
+        GLD_JOB[AWS Glue Job gppa-main-gold-build-power-analytics]
+        VIZ[AWS Glue Job gppa-main-visualizations-build]
     end
 
     subgraph EXT[External Data Sources]
@@ -25,6 +29,7 @@ flowchart LR
     end
 
     subgraph LAKE[AWS S3 Lakehouse]
+        LKB[S3 Bucket gppa-main-lake-platform-20260710212811]
         RAW[S3 Raw and Incremental Sources]
         BRZ[S3 Bronze Layer]
         SLV[S3 Silver Layer]
@@ -36,7 +41,7 @@ flowchart LR
 
     subgraph ANALYTICS[AWS Analytics and BI]
         CAT[AWS Glue Data Catalog]
-        ATH[AWS Athena Workgroup]
+        ATH[AWS Athena Workgroup gppa-main-wg]
         QS[AWS QuickSight]
     end
 
@@ -53,6 +58,7 @@ flowchart LR
     TF --> GLD_JOB
     TF --> VIZ
 
+    LKB --> RAW
     KAG --> ING
     RAW --> ING
     SFN --> ING

@@ -10,6 +10,12 @@
       },
       "Retry": [
         {
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 10,
+          "BackoffRate": 1.5
+        },
+        {
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 10,
           "MaxAttempts": 2,
@@ -25,6 +31,12 @@
         "JobName.$": "$.jobs.silver"
       },
       "Retry": [
+        {
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 10,
+          "BackoffRate": 1.5
+        },
         {
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 10,
@@ -42,6 +54,12 @@
       },
       "Retry": [
         {
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 10,
+          "BackoffRate": 1.5
+        },
+        {
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 10,
           "MaxAttempts": 2,
@@ -57,6 +75,12 @@
         "JobName.$": "$.jobs.visualization"
       },
       "Retry": [
+        {
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 10,
+          "BackoffRate": 1.5
+        },
         {
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 10,
