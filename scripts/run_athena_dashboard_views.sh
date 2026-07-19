@@ -10,6 +10,7 @@ SQL_FILES=(
   "analytics/sql/gold_views/power_generation_dashboard.sql"
   "analytics/sql/gold_views/plant_operations_dashboard.sql"
   "analytics/sql/gold_views/sustainability_dashboard.sql"
+  "analytics/sql/gold_views/geographic_dashboard.sql"
   "analytics/sql/monitoring/data_quality_monitoring.sql"
 )
 
@@ -144,9 +145,11 @@ bootstrap_athena_objects() {
 
   run_query "CREATE DATABASE IF NOT EXISTS ${DATABASE}" ""
 
-  run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.silver_stg_power_plants (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year bigint, latitude double, longitude double, owner string, estimated_generation_gwh double, last_updated_at string, ingested_at string, source_name string, event_year bigint, event_month bigint) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/silver/' TBLPROPERTIES ('classification'='parquet')"
+  run_query "DROP TABLE IF EXISTS ${DATABASE}.silver_stg_power_plants"
+  run_query "CREATE EXTERNAL TABLE ${DATABASE}.silver_stg_power_plants (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year bigint, latitude double, longitude double, owner string, estimated_generation_gwh double, continent string, sub_region string, last_updated_at string, ingested_at string, source_name string, event_year bigint, event_month bigint) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/silver/' TBLPROPERTIES ('classification'='parquet')"
 
-  run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.dim_plant (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year bigint, latitude double, longitude double, owner_masked string) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/dim_plant/' TBLPROPERTIES ('classification'='parquet')"
+  run_query "DROP TABLE IF EXISTS ${DATABASE}.dim_plant"
+  run_query "CREATE EXTERNAL TABLE ${DATABASE}.dim_plant (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year double, latitude double, longitude double, owner_masked string) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/dim_plant/' TBLPROPERTIES ('classification'='parquet')"
 
   run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.dim_country (country string, country_id bigint) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/dim_country/' TBLPROPERTIES ('classification'='parquet')"
 
@@ -157,11 +160,12 @@ bootstrap_athena_objects() {
   run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.fact_plant_capacity (country string, primary_fuel string, total_capacity_mw double, renewable_capacity_mw double) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/fact_plant_capacity/' TBLPROPERTIES ('classification'='parquet')"
 
   run_query "DROP TABLE IF EXISTS ${DATABASE}.fact_power_generation"
-  run_query "CREATE EXTERNAL TABLE ${DATABASE}.fact_power_generation (country string, primary_fuel string, year bigint, total_generation_gwh bigint) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/fact_power_generation/' TBLPROPERTIES ('classification'='parquet')"
+  run_query "CREATE EXTERNAL TABLE ${DATABASE}.fact_power_generation (country string, primary_fuel string, year bigint, total_generation_gwh double) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/fact_power_generation/' TBLPROPERTIES ('classification'='parquet')"
 
   run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.fact_capacity_geo (continent string, sub_region string, total_capacity_mw double) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/fact_capacity_geo/' TBLPROPERTIES ('classification'='parquet')"
 
-  run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.audit_silver_quality_report (run_timestamp string, dataset string, input_rows bigint, valid_rows bigint, malformed_rows bigint, null_issues string, range_issues string) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ('separatorChar'=',','quoteChar'='\"') STORED AS TEXTFILE LOCATION 's3://${data_lake_bucket}/audit_tables/silver_quality_report/' TBLPROPERTIES ('skip.header.line.count'='1')"
+  run_query "DROP TABLE IF EXISTS ${DATABASE}.audit_silver_quality_report"
+  run_query "CREATE EXTERNAL TABLE ${DATABASE}.audit_silver_quality_report (run_timestamp string, dataset string, input_rows string, valid_rows string, malformed_rows string, duplicate_rows_detected string, unique_plant_id_ok string, duplicate_plant_id_count string, mandatory_fields_ok string, mandatory_null_validation_ok string, null_plant_name string, null_country string, null_primary_fuel string, null_capacity_mw string, positive_capacity_ok string, invalid_capacity_rows string, valid_commissioning_year_ok string, invalid_commissioning_year_rows string, schema_drift_detected string, schema_new_columns string, schema_removed_columns string, null_issues string, range_issues string) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ('separatorChar'=',','quoteChar'='\"') STORED AS TEXTFILE LOCATION 's3://${data_lake_bucket}/audit_tables/silver_quality_report/' TBLPROPERTIES ('skip.header.line.count'='1')"
 
   run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.audit_metrics (metric_timestamp string, metric_name string, metric_value double) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ('separatorChar'=',','quoteChar'='\"') STORED AS TEXTFILE LOCATION 's3://${data_lake_bucket}/audit_tables/metrics/' TBLPROPERTIES ('skip.header.line.count'='0')"
 }

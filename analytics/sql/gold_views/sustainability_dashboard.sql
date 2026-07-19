@@ -51,3 +51,60 @@ SELECT
   total_capacity_mw
 FROM country_fallback
 WHERE NOT EXISTS (SELECT 1 FROM geo_density);
+
+CREATE OR REPLACE VIEW vw_sustainability_coal_dependency AS
+SELECT
+  CAST(continent AS varchar) AS continent,
+  CAST(sub_region AS varchar) AS sub_region,
+  CAST(SUM(CASE WHEN lower(primary_fuel) = 'coal' THEN capacity_mw ELSE 0 END) AS double) AS coal_capacity_mw,
+  CAST(SUM(capacity_mw) AS double) AS total_capacity_mw,
+  CAST(CASE
+    WHEN SUM(capacity_mw) = 0 THEN 0
+    ELSE SUM(CASE WHEN lower(primary_fuel) = 'coal' THEN capacity_mw ELSE 0 END) / SUM(capacity_mw)
+  END AS double) AS coal_capacity_ratio
+FROM silver_stg_power_plants
+GROUP BY 1,2;
+
+CREATE OR REPLACE VIEW vw_sustainability_clean_energy_growth AS
+WITH country_region AS (
+  SELECT
+    CAST(country AS varchar) AS country,
+    CAST(max(continent) AS varchar) AS continent,
+    CAST(max(sub_region) AS varchar) AS sub_region
+  FROM silver_stg_power_plants
+  GROUP BY 1
+)
+SELECT
+  CAST(g.year AS integer) AS year,
+  CAST(coalesce(cr.continent, 'Unknown') AS varchar) AS continent,
+  CAST(coalesce(cr.sub_region, 'Unknown') AS varchar) AS sub_region,
+  CAST(g.country AS varchar) AS country,
+  CAST(SUM(CASE WHEN f.is_renewable THEN g.total_generation_gwh ELSE 0 END) AS double) AS renewable_generation_gwh,
+  CAST(SUM(CASE WHEN NOT f.is_renewable THEN g.total_generation_gwh ELSE 0 END) AS double) AS non_renewable_generation_gwh
+FROM fact_power_generation g
+LEFT JOIN dim_fuel_type f
+  ON g.primary_fuel = f.primary_fuel
+LEFT JOIN country_region cr
+  ON g.country = cr.country
+GROUP BY 1,2,3,4;
+
+CREATE OR REPLACE VIEW vw_geographic_plant_distribution AS
+SELECT
+  CAST(continent AS varchar) AS continent,
+  CAST(sub_region AS varchar) AS sub_region,
+  CAST(COUNT(*) AS integer) AS plant_count,
+  CAST(SUM(capacity_mw) AS double) AS total_capacity_mw
+FROM silver_stg_power_plants
+GROUP BY 1,2;
+
+CREATE OR REPLACE VIEW vw_geographic_country_infrastructure_density AS
+SELECT
+  CAST(country AS varchar) AS country,
+  CAST(COUNT(*) AS integer) AS plant_count,
+  CAST(SUM(capacity_mw) AS double) AS total_capacity_mw,
+  CAST(CASE
+    WHEN SUM(capacity_mw) = 0 THEN 0
+    ELSE COUNT(*) / (SUM(capacity_mw) / 1000.0)
+  END AS double) AS plants_per_1000_mw
+FROM silver_stg_power_plants
+GROUP BY 1;

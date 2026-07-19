@@ -50,6 +50,7 @@ power_generation_rows=""
 plant_operations_rows=""
 sustainability_rows=""
 monitoring_rows=""
+geographic_rows=""
 
 json_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
@@ -86,6 +87,7 @@ write_report() {
       "power_generation_rows": "$(json_escape "$power_generation_rows")",
       "plant_operations_rows": "$(json_escape "$plant_operations_rows")",
       "sustainability_rows": "$(json_escape "$sustainability_rows")",
+      "geographic_rows": "$(json_escape "$geographic_rows")",
       "monitoring_rows": "$(json_escape "$monitoring_rows")"
     }
   }
@@ -155,8 +157,12 @@ required_datasets=(
   "${NAME_PREFIX}-plant_aging_plants-dataset"
   "${NAME_PREFIX}-plant_utilization-dataset"
   "${NAME_PREFIX}-sustainability_heatmap-dataset"
+  "${NAME_PREFIX}-sustainability_clean_energy_growth-dataset"
+  "${NAME_PREFIX}-sustainability_coal_dependency-dataset"
   "${NAME_PREFIX}-sustainability_country_distribution-dataset"
   "${NAME_PREFIX}-sustainability_regional_density-dataset"
+  "${NAME_PREFIX}-geographic_generation_density-dataset"
+  "${NAME_PREFIX}-geographic_country_infrastructure_density-dataset"
   "${NAME_PREFIX}-monitoring_pipeline_freshness-dataset"
   "${NAME_PREFIX}-monitoring_failed_jobs-dataset"
   "${NAME_PREFIX}-monitoring_data_quality-dataset"
@@ -173,7 +179,7 @@ for ds in "${required_datasets[@]}"; do
 done
 dataset_check="passed"
 
-coverage_labels=("power generation" "plant operations" "sustainability" "monitoring")
+coverage_labels=("power generation" "plant operations" "sustainability" "geographic" "monitoring")
 for label in "${coverage_labels[@]}"; do
   if ! printf '%s\n' "${qs_dashboards[@]}" | grep -Eiq "$label"; then
     dashboard_check="failed"
@@ -187,7 +193,7 @@ done
 dashboard_check="passed"
 
 echo "  OK: required datasets present"
-echo "  OK: dashboard coverage present (power generation, plant operations, sustainability, monitoring)"
+echo "  OK: dashboard coverage present (power generation, plant operations, sustainability, geographic, monitoring)"
 
 run_athena_check() {
   local query="$1"
@@ -244,9 +250,21 @@ run_athena_check() {
 
 echo "[4/4] Athena dashboard-view smoke checks"
 run_athena_check "SELECT count(*) FROM vw_power_generation_country_capacity" "Power Generation view" power_generation_rows
+run_athena_check "SELECT count(*) FROM vw_power_generation_fuel_distribution" "Power Generation fuel distribution view" power_generation_rows
+run_athena_check "SELECT count(*) FROM vw_power_generation_renewable_trend" "Power Generation renewable trend view" power_generation_rows
 run_athena_check "SELECT count(*) FROM vw_plant_operations_largest_plants" "Plant Operations view" plant_operations_rows
+run_athena_check "SELECT count(*) FROM vw_plant_operations_aging_infrastructure" "Plant Operations aging view" plant_operations_rows
+run_athena_check "SELECT count(*) FROM vw_plant_operations_capacity_utilization" "Plant Operations utilization view" plant_operations_rows
 run_athena_check "SELECT count(*) FROM vw_sustainability_regional_density" "Sustainability view" sustainability_rows
+run_athena_check "SELECT count(*) FROM vw_sustainability_clean_energy_growth" "Sustainability renewable adoption view" sustainability_rows
+run_athena_check "SELECT count(*) FROM vw_sustainability_coal_dependency" "Sustainability coal dependency view" sustainability_rows
+run_athena_check "SELECT count(*) FROM vw_sustainability_heatmap" "Geographic heatmap view" geographic_rows
+run_athena_check "SELECT count(*) FROM vw_geographic_country_infrastructure_density" "Geographic country distribution view" geographic_rows
+run_athena_check "SELECT count(*) FROM vw_geographic_generation_density" "Geographic regional density view" geographic_rows
 run_athena_check "SELECT count(*) FROM vw_monitoring_latency" "Monitoring view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_pipeline_freshness" "Monitoring freshness view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_failed_jobs" "Monitoring failed ingestion jobs view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_data_quality" "Monitoring data quality alerts view" monitoring_rows
 
 echo "Post-deploy smoke checks passed."
 write_report "passed" ""

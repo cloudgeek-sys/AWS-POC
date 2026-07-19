@@ -98,6 +98,46 @@ locals {
         { name = "total_capacity_mw", type = "DECIMAL" }
       ]
     }
+    sustainability_clean_energy_growth = {
+      view_name = "vw_sustainability_clean_energy_growth"
+      columns = [
+        { name = "year", type = "INTEGER" },
+        { name = "continent", type = "STRING" },
+        { name = "sub_region", type = "STRING" },
+        { name = "country", type = "STRING" },
+        { name = "renewable_generation_gwh", type = "DECIMAL" },
+        { name = "non_renewable_generation_gwh", type = "DECIMAL" }
+      ]
+    }
+    sustainability_coal_dependency = {
+      view_name = "vw_sustainability_coal_dependency"
+      columns = [
+        { name = "continent", type = "STRING" },
+        { name = "sub_region", type = "STRING" },
+        { name = "coal_capacity_mw", type = "DECIMAL" },
+        { name = "total_capacity_mw", type = "DECIMAL" },
+        { name = "coal_capacity_ratio", type = "DECIMAL" }
+      ]
+    }
+    geographic_generation_density = {
+      view_name = "vw_geographic_generation_density"
+      columns = [
+        { name = "country", type = "STRING" },
+        { name = "plant_count", type = "INTEGER" },
+        { name = "total_capacity_mw", type = "DECIMAL" },
+        { name = "total_generation_gwh", type = "DECIMAL" },
+        { name = "generation_per_plant_gwh", type = "DECIMAL" }
+      ]
+    }
+    geographic_country_infrastructure_density = {
+      view_name = "vw_geographic_country_infrastructure_density"
+      columns = [
+        { name = "country", type = "STRING" },
+        { name = "plant_count", type = "INTEGER" },
+        { name = "total_capacity_mw", type = "DECIMAL" },
+        { name = "plants_per_1000_mw", type = "DECIMAL" }
+      ]
+    }
     monitoring_pipeline_freshness = {
       view_name = "vw_monitoring_pipeline_freshness"
       columns = [
@@ -155,7 +195,14 @@ locals {
     sustainability = [
       "sustainability_heatmap",
       "sustainability_country_distribution",
-      "sustainability_regional_density"
+      "sustainability_regional_density",
+      "sustainability_clean_energy_growth",
+      "sustainability_coal_dependency"
+    ]
+    geographic = [
+      "sustainability_heatmap",
+      "geographic_country_infrastructure_density",
+      "geographic_generation_density"
     ]
     monitoring = [
       "monitoring_pipeline_freshness",
@@ -253,9 +300,9 @@ resource "aws_quicksight_dashboard" "dashboard" {
     for k, v in var.quicksight_dashboard_templates : k => v if contains(keys(local.dashboard_dataset_keys), k)
   } : {}
 
-  aws_account_id = data.aws_caller_identity.current.account_id
-  dashboard_id   = "${replace(local.name_prefix, "-", "_")}_${each.key}_dashboard"
-  name           = "${local.name_prefix}-${replace(each.key, "_", "-")}-dashboard"
+  aws_account_id      = data.aws_caller_identity.current.account_id
+  dashboard_id        = "${replace(local.name_prefix, "-", "_")}_${each.key}_dashboard"
+  name                = "${local.name_prefix}-${replace(each.key, "_", "-")}-dashboard"
   version_description = "Managed by Terraform"
 
   source_entity {

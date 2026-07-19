@@ -13,19 +13,24 @@ required_datasets=(
   "${NAME_PREFIX}-plant_aging_plants-dataset"
   "${NAME_PREFIX}-plant_utilization-dataset"
   "${NAME_PREFIX}-sustainability_heatmap-dataset"
+  "${NAME_PREFIX}-sustainability_clean_energy_growth-dataset"
+  "${NAME_PREFIX}-sustainability_coal_dependency-dataset"
   "${NAME_PREFIX}-sustainability_country_distribution-dataset"
   "${NAME_PREFIX}-sustainability_regional_density-dataset"
+  "${NAME_PREFIX}-geographic_generation_density-dataset"
+  "${NAME_PREFIX}-geographic_country_infrastructure_density-dataset"
   "${NAME_PREFIX}-monitoring_pipeline_freshness-dataset"
   "${NAME_PREFIX}-monitoring_failed_jobs-dataset"
   "${NAME_PREFIX}-monitoring_data_quality-dataset"
   "${NAME_PREFIX}-monitoring_latency-dataset"
 )
 
-required_dashboards=(
-  "${NAME_PREFIX}-power-generation-dashboard"
-  "${NAME_PREFIX}-plant-dashboard"
-  "${NAME_PREFIX}-sustainability-dashboard"
-  "${NAME_PREFIX}-monitoring-dashboard"
+required_dashboard_labels=(
+  "power generation"
+  "plant operations"
+  "sustainability"
+  "geographic"
+  "monitoring"
 )
 
 echo "Checking QuickSight assets in account ${ACCOUNT_ID}, region ${AWS_REGION}, prefix ${NAME_PREFIX}"
@@ -71,12 +76,12 @@ for ds in "${required_datasets[@]}"; do
   fi
 done
 
-echo "\nRequired dashboards:"
-for db in "${required_dashboards[@]}"; do
-  if printf '%s\n' "${existing_dashboards[@]}" | grep -Fxq "$db"; then
-    echo "  OK  $db"
+echo "\nRequired dashboard coverage labels:"
+for label in "${required_dashboard_labels[@]}"; do
+  if printf '%s\n' "${existing_dashboards[@]}" | grep -Eiq "$label"; then
+    echo "  OK  $label"
   else
-    echo "  MISSING  $db"
+    echo "  MISSING  $label"
     missing=1
   fi
 done

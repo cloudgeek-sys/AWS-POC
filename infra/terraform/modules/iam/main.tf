@@ -152,6 +152,31 @@ data "aws_iam_policy_document" "sfn_runtime" {
 
     resources = ["*"]
   }
+
+  statement {
+    sid = "StepFunctionsAthenaQueryExecution"
+
+    actions = [
+      "athena:StartQueryExecution",
+      "athena:GetQueryExecution",
+      "athena:GetQueryResults",
+      "athena:StopQueryExecution"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "StepFunctionsSnsInsightsPublish"
+
+    actions = [
+      "sns:Publish"
+    ]
+
+    resources = [
+      "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${local.name_prefix}-alarm-notifications"
+    ]
+  }
 }
 
 resource "aws_iam_policy" "sfn_runtime" {

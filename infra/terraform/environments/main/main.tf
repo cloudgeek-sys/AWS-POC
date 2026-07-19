@@ -66,6 +66,9 @@ module "step_functions" {
   silver_job_name         = module.glue.silver_job_name
   gold_job_name           = module.glue.gold_job_name
   visualization_job_name  = module.glue.visualization_job_name
+  athena_workgroup_name   = module.athena.workgroup_name
+  athena_database_name    = var.athena_database_name
+  data_lake_bucket        = module.s3_lake.bucket_name
 }
 
 module "monitoring" {

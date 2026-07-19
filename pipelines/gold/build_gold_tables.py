@@ -198,13 +198,79 @@ def run(data_root: str) -> None:
     }
     write_json(data_lineage, join_uri(governance_dir, "data_lineage.json"))
 
+    aggregation_report = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "capacity_aggregation": {
+            "applied": True,
+            "output_rows": int(len(fact_capacity)),
+            "source": "silver.stg_power_plants",
+            "group_by": ["country", "primary_fuel"],
+        },
+        "time_based_aggregation": {
+            "applied": True,
+            "output_rows": int(len(fact_generation_time)),
+            "source": "silver.stg_power_plants",
+            "group_by": ["event_year", "event_month"],
+        },
+        "geo_based_aggregation": {
+            "applied": True,
+            "output_rows": int(len(fact_capacity_geo)),
+            "source": "silver.stg_power_plants",
+            "group_by": ["continent", "sub_region"],
+        },
+    }
+    write_json(aggregation_report, join_uri(governance_dir, "transformation_aggregation_report.json"))
+
     renewable_total = fact_capacity["renewable_capacity_mw"].sum()
     total_capacity = fact_capacity["total_capacity_mw"].sum()
     renewable_ratio = float(renewable_total / total_capacity) if total_capacity else 0.0
+    average_plant_capacity = float(dim_plant["capacity_mw"].mean()) if len(dim_plant) else 0.0
+
+    country_fuel_distribution = (
+        fact_generation.groupby(["country", "primary_fuel"], dropna=False, as_index=False)["total_generation_gwh"]
+        .sum()
+        .sort_values(["country", "primary_fuel"])
+    )
+    annual_generation_trends = (
+        fact_generation.groupby(["year"], dropna=False, as_index=False)["total_generation_gwh"]
+        .sum()
+        .sort_values(["year"])
+    )
+
+    mandatory_kpi_report = pd.DataFrame(
+        [
+            {
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "total_generation_capacity_mw": float(total_capacity),
+                "renewable_energy_ratio": float(renewable_ratio),
+                "average_plant_capacity_mw": float(average_plant_capacity),
+                "country_wise_fuel_distribution_rows": int(len(country_fuel_distribution)),
+                "annual_generation_trends_rows": int(len(annual_generation_trends)),
+            }
+        ]
+    )
 
     audit_dir = join_uri(data_root, "audit")
+    write_parquet(country_fuel_distribution, join_uri(gold_dir, "country_fuel_distribution.parquet"))
+    write_parquet(annual_generation_trends, join_uri(gold_dir, "annual_generation_trends.parquet"))
+    write_json(mandatory_kpi_report.to_dict(orient="records")[0], join_uri(audit_dir, "mandatory_kpi_report.json"))
     emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_rows_fact_capacity", float(len(fact_capacity)))
     emit_metric(join_uri(audit_dir, "metrics.csv"), "renewable_energy_ratio", renewable_ratio)
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_capacity_aggregation_rows", float(len(fact_capacity)))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_time_aggregation_rows", float(len(fact_generation_time)))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_geo_aggregation_rows", float(len(fact_capacity_geo)))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_total_generation_capacity_mw", float(total_capacity))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "gold_average_plant_capacity_mw", float(average_plant_capacity))
+    emit_metric(
+        join_uri(audit_dir, "metrics.csv"),
+        "gold_country_wise_fuel_distribution_rows",
+        float(len(country_fuel_distribution)),
+    )
+    emit_metric(
+        join_uri(audit_dir, "metrics.csv"),
+        "gold_annual_generation_trends_rows",
+        float(len(annual_generation_trends)),
+    )
 
 
 def parse_args() -> argparse.Namespace:

@@ -497,11 +497,15 @@ def run(
     total_late_arriving = sum(item.get("late_arriving_rows", 0) for item in ingest_results)
     total_spike_detected = sum(1 for item in ingest_results if item.get("volume_spike_detected", False))
     total_drop_detected = sum(1 for item in ingest_results if item.get("volume_drop_detected", False))
+    failed_sources_count = sum(1 for item in ingest_results if item.get("status") == "failed")
+    idempotent_skip_count = sum(1 for item in ingest_results if item.get("status") in {"skipped", "no_changes"})
     emit_metric(join_uri(audit_dir, "metrics.csv"), "bronze_rows_ingested", float(total_ingested))
     emit_metric(join_uri(audit_dir, "metrics.csv"), "bronze_changed_rows", float(total_changed))
     emit_metric(join_uri(audit_dir, "metrics.csv"), "bronze_late_arriving_rows", float(total_late_arriving))
     emit_metric(join_uri(audit_dir, "metrics.csv"), "volume_spike_detected_sources", float(total_spike_detected))
     emit_metric(join_uri(audit_dir, "metrics.csv"), "volume_drop_detected_sources", float(total_drop_detected))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "bronze_failed_sources", float(failed_sources_count))
+    emit_metric(join_uri(audit_dir, "metrics.csv"), "bronze_idempotent_skips", float(idempotent_skip_count))
 
     write_csv(pd.DataFrame(ingest_results), join_uri(audit_dir, "bronze_run_report.csv"))
 
@@ -530,6 +534,24 @@ def run(
         "freshness_ingestion_delay_breached_sources",
         float(ingestion_delay_breached_count),
     )
+
+    reliability_summary = pd.DataFrame(
+        [
+            {
+                "run_timestamp": datetime.now(timezone.utc).isoformat(),
+                "enabled_sources": int(sum(1 for s in config["sources"] if s.get("enabled", True))),
+                "failed_sources": int(failed_sources_count),
+                "idempotent_skips": int(idempotent_skip_count),
+                "freshness_missing_updates_sources": int(missing_updates_count),
+                "freshness_ingestion_delay_breached_sources": int(ingestion_delay_breached_count),
+                "volume_spike_detected_sources": int(total_spike_detected),
+                "volume_drop_detected_sources": int(total_drop_detected),
+                "retry_failed_ingestion_supported": True,
+                "retry_failed_ingestion_arg": "--replay-failed-only",
+            }
+        ]
+    )
+    write_csv(reliability_summary, join_uri(audit_dir, "dq_reliability_report.csv"))
 
 
 def parse_args() -> argparse.Namespace:

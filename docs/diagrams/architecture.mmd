@@ -15,6 +15,16 @@ flowchart LR
 
     subgraph ORCH[AWS Orchestration]
         SFN[AWS Step Functions gppa-main-power-pipeline]
+        KPIQ[Athena KPI Query Task]
+        ALRT[SNS Insights Publish Task]
+    end
+
+    subgraph PROCESS[Required Process Flow via Step Functions]
+        P1[1 Bronze to Silver plus DQ]
+        P2[2 Silver to Gold]
+        P3[3 Athena KPI Query Creation]
+        P4[4 Dashboards and Reports Generation]
+        P5[5 SNS and Email Alerts]
     end
 
     subgraph ETL[AWS Processing]
@@ -45,6 +55,11 @@ flowchart LR
         QS[AWS QuickSight]
     end
 
+    subgraph ALERTS[AWS Alerts]
+        SNS[AWS SNS Topic gppa-main-alarm-notifications]
+        EMAIL[Email Subscribers]
+    end
+
     subgraph OBS[AWS Observability]
         MET[Pipeline Metrics and Quality Reports]
         CW[AWS CloudWatch Alarms and Logs]
@@ -64,7 +79,12 @@ flowchart LR
     SFN --> ING
     SFN --> TRN
     SFN --> GLD_JOB
+    SFN --> KPIQ
     SFN --> VIZ
+    SFN --> ALRT
+
+    P1 --> P2 --> P3 --> P4 --> P5
+    SFN --> P1
 
     ING --> BRZ
     ING --> AUD
@@ -86,17 +106,23 @@ flowchart LR
 
     CAT --> ATH
     ATH --> QS
+    KPIQ --> ATH
 
     ING --> MET
     TRN --> MET
     GLD_JOB --> MET
     VIZ --> MET
     MET --> CW
+    ALRT --> SNS
+    SNS --> EMAIL
+    CW --> SNS
 
     classDef aws fill:#FFF7ED,stroke:#FF9900,stroke-width:1.5px,color:#232F3E;
     classDef store fill:#F8FBFF,stroke:#4A90E2,stroke-width:1.2px,color:#1F2937;
     classDef ops fill:#F5F3FF,stroke:#6366F1,stroke-width:1.2px,color:#111827;
+    classDef flow fill:#ECFEFF,stroke:#0EA5E9,stroke-width:1.2px,color:#0F172A;
 
     class SFN,ING,TRN,GLD_JOB,VIZ,CAT,ATH,QS,CW aws;
     class RAW,BRZ,SLV,GLD,QTN,AUD,VOUT store;
     class GH,TF,UP,MET,KAG ops;
+    class P1,P2,P3,P4,P5 flow;

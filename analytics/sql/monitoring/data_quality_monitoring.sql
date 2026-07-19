@@ -2,12 +2,27 @@ CREATE OR REPLACE VIEW vw_monitoring_data_quality AS
 SELECT
   CAST(try(from_iso8601_timestamp(run_timestamp)) AS timestamp) AS run_timestamp,
   CAST(dataset AS varchar) AS dataset,
-  CAST(input_rows AS integer) AS input_rows,
-  CAST(valid_rows AS integer) AS valid_rows,
-  CAST(malformed_rows AS integer) AS malformed_rows,
-  CAST(null_issues AS integer) AS null_issues,
-  CAST(range_issues AS integer) AS range_issues,
-  CAST(CASE WHEN input_rows = 0 THEN 0 ELSE CAST(valid_rows AS double) / CAST(input_rows AS double) END AS double) AS valid_ratio
+  CAST(try_cast(input_rows AS integer) AS integer) AS input_rows,
+  CAST(try_cast(valid_rows AS integer) AS integer) AS valid_rows,
+  CAST(try_cast(malformed_rows AS integer) AS integer) AS malformed_rows,
+  CAST(
+    coalesce(try_cast(null_plant_name AS integer), 0)
+    + coalesce(try_cast(null_country AS integer), 0)
+    + coalesce(try_cast(null_primary_fuel AS integer), 0)
+    + coalesce(try_cast(null_capacity_mw AS integer), 0)
+    AS integer
+  ) AS null_issues,
+  CAST(
+    coalesce(try_cast(invalid_capacity_rows AS integer), 0)
+    + coalesce(try_cast(invalid_commissioning_year_rows AS integer), 0)
+    AS integer
+  ) AS range_issues,
+  CAST(
+    CASE
+      WHEN coalesce(try_cast(input_rows AS double), 0) = 0 THEN 0
+      ELSE coalesce(try_cast(valid_rows AS double), 0) / try_cast(input_rows AS double)
+    END AS double
+  ) AS valid_ratio
 FROM audit_silver_quality_report;
 
 CREATE OR REPLACE VIEW vw_monitoring_freshness AS
@@ -129,3 +144,40 @@ SELECT
   silver_to_gold_minutes,
   gold_to_viz_minutes
 FROM vw_monitoring_processing_latency;
+
+CREATE OR REPLACE VIEW vw_monitoring_duplicate_plants AS
+SELECT
+  CAST(plant_id AS varchar) AS plant_id,
+  CAST(COUNT(*) AS integer) AS duplicate_count,
+  CAST(max(ingested_at) AS varchar) AS latest_ingested_at
+FROM silver_stg_power_plants
+GROUP BY 1
+HAVING COUNT(*) > 1;
+
+CREATE OR REPLACE VIEW vw_monitoring_missing_or_inconsistent_generation AS
+SELECT
+  CAST(plant_id AS varchar) AS plant_id,
+  CAST(plant_name AS varchar) AS plant_name,
+  CAST(country AS varchar) AS country,
+  CAST(primary_fuel AS varchar) AS primary_fuel,
+  CAST(capacity_mw AS double) AS capacity_mw,
+  CAST(estimated_generation_gwh AS double) AS estimated_generation_gwh,
+  CAST(CASE
+    WHEN capacity_mw IS NULL OR capacity_mw <= 0 THEN 0
+    ELSE estimated_generation_gwh / (capacity_mw * 8.76)
+  END AS double) AS utilization_ratio,
+  CAST(
+    CASE
+      WHEN estimated_generation_gwh IS NULL THEN 'missing_generation'
+      WHEN capacity_mw IS NULL OR capacity_mw <= 0 THEN 'invalid_capacity'
+      WHEN estimated_generation_gwh / (capacity_mw * 8.76) > 1.0 THEN 'inconsistent_above_theoretical'
+      WHEN estimated_generation_gwh / (capacity_mw * 8.76) < 0 THEN 'inconsistent_negative_generation'
+      ELSE 'ok'
+    END AS varchar
+  ) AS issue_type
+FROM silver_stg_power_plants
+WHERE estimated_generation_gwh IS NULL
+   OR capacity_mw IS NULL
+   OR capacity_mw <= 0
+   OR estimated_generation_gwh / nullif(capacity_mw * 8.76, 0) > 1.0
+   OR estimated_generation_gwh / nullif(capacity_mw * 8.76, 0) < 0;

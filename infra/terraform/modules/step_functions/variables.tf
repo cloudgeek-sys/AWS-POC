@@ -5,3 +5,6 @@ variable "ingest_job_name" { type = string }
 variable "silver_job_name" { type = string }
 variable "gold_job_name" { type = string }
 variable "visualization_job_name" { type = string }
+variable "athena_workgroup_name" { type = string }
+variable "athena_database_name" { type = string }
+variable "data_lake_bucket" { type = string }

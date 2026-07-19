@@ -1,6 +1,20 @@
 sources:
-  - source_name: wri_global_power_plants
+  - source_name: global_power_plants_synthetic_records_v2
     enabled: true
+    format: csv
+    path: bronze/ingest_year=2026/ingest_month=07/ingest_day=11/global_power_plants_synthetic_records2sets/global_power_plants_synthetic_records_v2.csv
+    primary_key: plant_id
+    event_time_column: commissioning_year
+
+  - source_name: global_power_plants_synthetic_records
+    enabled: true
+    format: csv
+    path: bronze/ingest_year=2026/ingest_month=07/ingest_day=11/global_power_plants_synthetic_records2sets/global_power_plants_synthetic.csv
+    primary_key: plant_id
+    event_time_column: commissioning_year
+
+  - source_name: wri_global_power_plants
+    enabled: false
     format: kagglehub
     dataset: ibrahimqasimi/global-power-plants-database-wri
     file_path: ""
@@ -8,7 +22,7 @@ sources:
     event_time_column: last_updated_at
 
   - source_name: kaggle_energy
-    enabled: true
+    enabled: false
     format: kagglehub
     dataset: sujaykapadnis/energy
     file_path: ""
@@ -16,7 +30,7 @@ sources:
     event_time_column: date
 
   - source_name: open_power_systems_data
-    enabled: true
+    enabled: false
     format: kagglehub
     dataset: jordansiem/open-power-systems-data
     file_path: ""
@@ -24,7 +38,7 @@ sources:
     event_time_column: generation_date
 
   - source_name: carbon_emissions
-    enabled: true
+    enabled: false
     format: kagglehub
     dataset: saloni1712/co2-emissions
     file_path: ""
@@ -32,7 +46,7 @@ sources:
     event_time_column: year
 
   - source_name: renewable_adoption
-    enabled: true
+    enabled: false
     format: kagglehub
     dataset: taruneshburman/renewable-energy-adoption-dataset
     file_path: ""
@@ -40,7 +54,7 @@ sources:
     event_time_column: year
 
   - source_name: weather_observations
-    enabled: true
+    enabled: false
     format: kagglehub
     dataset: muthuj7/weather-dataset
     file_path: ""
