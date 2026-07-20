@@ -1,4 +1,0 @@
-plant_id,plant_name,country,capacity_mw,primary_fuel,commissioning_year,latitude,longitude,owner,estimated_generation_gwh,last_updated_at
-P002,Delta Gas 7,United States,900,Gas,1998,29.7,-95.3,Delta Utilities Group,3100,2024-02-15T00:00:00Z
-P007,Coastal Wind New,UK,210,Wind,2023,53.4,-3.0,Coastal Renewables,620,2024-02-15T00:00:00Z
-P008,Geo Core 1,Iceland,95,Geothermal,2017,64.1,-21.9,Arctic Grid,350,2024-02-15T00:00:00Z

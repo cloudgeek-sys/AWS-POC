@@ -1,5 +1,5 @@
 {
-  "Comment": "Global Power Plant Analytics Pipeline",
+  "Comment": "Global Power Plant Analytics Pipeline (mandatory Bronze->Silver DQ->Gold->KPI->Dashboards->Alerts)",
   "StartAt": "BronzeIngestion",
   "States": {
     "BronzeIngestion": {
@@ -66,6 +66,29 @@
           "BackoffRate": 2.0
         }
       ],
+      "Next": "RunKpiQuery"
+    },
+    "RunKpiQuery": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Parameters": {
+        "QueryString": "SELECT total_generation_capacity_mw, renewable_energy_ratio, average_plant_capacity_mw FROM vw_power_generation_kpi_summary",
+        "WorkGroup.$": "$.athena.workgroup",
+        "QueryExecutionContext": {
+          "Database.$": "$.athena.database"
+        },
+        "ResultConfiguration": {
+          "OutputLocation.$": "$.athena.output_location"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
       "Next": "BuildVisualizations"
     },
     "BuildVisualizations": {
@@ -81,6 +104,24 @@
           "MaxAttempts": 10,
           "BackoffRate": 1.5
         },
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Next": "PublishInsightsAlert"
+    },
+    "PublishInsightsAlert": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn.$": "$.alerts.topic_arn",
+        "Subject": "gppa pipeline insights",
+        "Message": "Pipeline completed: Bronze to Silver (DQ), Silver to Gold, Athena KPI creation, dashboards/reports generation, alerts dispatch."
+      },
+      "Retry": [
         {
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 10,

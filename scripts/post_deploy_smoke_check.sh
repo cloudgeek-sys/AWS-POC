@@ -153,20 +153,30 @@ required_datasets=(
   "${NAME_PREFIX}-power_generation_country_capacity-dataset"
   "${NAME_PREFIX}-power_generation_fuel_distribution-dataset"
   "${NAME_PREFIX}-power_generation_renewable_trends-dataset"
+  "${NAME_PREFIX}-power_generation_global_fuel_dominance-dataset"
+  "${NAME_PREFIX}-power_generation_annual_generation_trends-dataset"
+  "${NAME_PREFIX}-power_generation_kpi_summary-dataset"
   "${NAME_PREFIX}-plant_largest_plants-dataset"
   "${NAME_PREFIX}-plant_aging_plants-dataset"
   "${NAME_PREFIX}-plant_utilization-dataset"
+  "${NAME_PREFIX}-plant_underutilized_plants-dataset"
+  "${NAME_PREFIX}-plant_aging_by_region-dataset"
   "${NAME_PREFIX}-sustainability_heatmap-dataset"
   "${NAME_PREFIX}-sustainability_clean_energy_growth-dataset"
   "${NAME_PREFIX}-sustainability_coal_dependency-dataset"
   "${NAME_PREFIX}-sustainability_country_distribution-dataset"
   "${NAME_PREFIX}-sustainability_regional_density-dataset"
+  "${NAME_PREFIX}-geographic_heatmap_points-dataset"
   "${NAME_PREFIX}-geographic_generation_density-dataset"
   "${NAME_PREFIX}-geographic_country_infrastructure_density-dataset"
   "${NAME_PREFIX}-monitoring_pipeline_freshness-dataset"
   "${NAME_PREFIX}-monitoring_failed_jobs-dataset"
   "${NAME_PREFIX}-monitoring_data_quality-dataset"
+  "${NAME_PREFIX}-monitoring_dq_failure_breakdown-dataset"
+  "${NAME_PREFIX}-monitoring_dq_failure_breakdown_latest-dataset"
   "${NAME_PREFIX}-monitoring_latency-dataset"
+  "${NAME_PREFIX}-monitoring_duplicate_plants-dataset"
+  "${NAME_PREFIX}-monitoring_missing_or_inconsistent_generation-dataset"
 )
 
 for ds in "${required_datasets[@]}"; do
@@ -252,19 +262,29 @@ echo "[4/4] Athena dashboard-view smoke checks"
 run_athena_check "SELECT count(*) FROM vw_power_generation_country_capacity" "Power Generation view" power_generation_rows
 run_athena_check "SELECT count(*) FROM vw_power_generation_fuel_distribution" "Power Generation fuel distribution view" power_generation_rows
 run_athena_check "SELECT count(*) FROM vw_power_generation_renewable_trend" "Power Generation renewable trend view" power_generation_rows
+run_athena_check "SELECT count(*) FROM vw_power_generation_global_fuel_dominance" "Power Generation global fuel dominance view" power_generation_rows
+run_athena_check "SELECT count(*) FROM vw_power_generation_annual_generation_trends" "Power Generation annual generation trend view" power_generation_rows
+run_athena_check "SELECT count(*) FROM vw_power_generation_kpi_summary" "Power Generation KPI summary view" power_generation_rows
 run_athena_check "SELECT count(*) FROM vw_plant_operations_largest_plants" "Plant Operations view" plant_operations_rows
 run_athena_check "SELECT count(*) FROM vw_plant_operations_aging_infrastructure" "Plant Operations aging view" plant_operations_rows
 run_athena_check "SELECT count(*) FROM vw_plant_operations_capacity_utilization" "Plant Operations utilization view" plant_operations_rows
+run_athena_check "SELECT count(*) FROM vw_plant_operations_underutilized_plants" "Plant Operations underutilized plants view" plant_operations_rows
+run_athena_check "SELECT count(*) FROM vw_plant_operations_aging_by_region" "Plant Operations aging by region view" plant_operations_rows
 run_athena_check "SELECT count(*) FROM vw_sustainability_regional_density" "Sustainability view" sustainability_rows
 run_athena_check "SELECT count(*) FROM vw_sustainability_clean_energy_growth" "Sustainability renewable adoption view" sustainability_rows
 run_athena_check "SELECT count(*) FROM vw_sustainability_coal_dependency" "Sustainability coal dependency view" sustainability_rows
 run_athena_check "SELECT count(*) FROM vw_sustainability_heatmap" "Geographic heatmap view" geographic_rows
+run_athena_check "SELECT count(*) FROM vw_geographic_heatmap_points" "Geographic heatmap points view" geographic_rows
 run_athena_check "SELECT count(*) FROM vw_geographic_country_infrastructure_density" "Geographic country distribution view" geographic_rows
 run_athena_check "SELECT count(*) FROM vw_geographic_generation_density" "Geographic regional density view" geographic_rows
 run_athena_check "SELECT count(*) FROM vw_monitoring_latency" "Monitoring view" monitoring_rows
 run_athena_check "SELECT count(*) FROM vw_monitoring_pipeline_freshness" "Monitoring freshness view" monitoring_rows
 run_athena_check "SELECT count(*) FROM vw_monitoring_failed_jobs" "Monitoring failed ingestion jobs view" monitoring_rows
 run_athena_check "SELECT count(*) FROM vw_monitoring_data_quality" "Monitoring data quality alerts view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_dq_failure_breakdown" "Monitoring DQ failure breakdown view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_dq_failure_breakdown_latest" "Monitoring DQ failure latest snapshot view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_duplicate_plants" "Monitoring duplicate plant entries view" monitoring_rows
+run_athena_check "SELECT count(*) FROM vw_monitoring_missing_or_inconsistent_generation" "Monitoring missing or inconsistent generation view" monitoring_rows
 
 echo "Post-deploy smoke checks passed."
 write_report "passed" ""

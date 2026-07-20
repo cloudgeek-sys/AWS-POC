@@ -4,6 +4,10 @@ Selected BI platform: AWS QuickSight
 
 This project uses QuickSight only. Superset artifacts are not part of the active BI scope.
 
+Implementation checklist:
+
+- docs/runbooks/quicksight_visual_implementation_checklist.md
+
 ## Dashboard evidence PDFs
 
 - dashboards/Power-Generation-Dashboard.pdf

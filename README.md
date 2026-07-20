@@ -13,6 +13,14 @@ Production-style, cost-aware, medallion lakehouse pipeline for global power plan
 - Terraform-based infrastructure with environment-scoped configuration
 - CI/CD with GitHub Actions for validation and deployment
 
+Current operational baseline:
+
+- Active sources are restricted to two local CSV files:
+  - `datasets/global_power_plants_synthetic_records_v2.csv`
+  - `datasets/global_power_plants_synthetic.csv`
+- Monitoring freshness is sourced from Bronze freshness audit (`audit_freshness_report`) so both configured sources are visible.
+- Placeholder categorical values (`?`, `unknown`, `0`, `na`, `n/a`, `null`, etc.) are normalized out before dashboard serving.
+
 ## 2. High-level architecture
 
 - Bronze: immutable raw files partitioned by ingest date
@@ -28,6 +36,7 @@ See docs:
 - docs/diagrams/architecture.mmd
 - docs/diagrams/network.mmd
 - docs/runbooks/end_to_end_implementation_guide.md
+- docs/runbooks/solution_challenges_and_steps.md
 
 ## 2.1 Deliverables checklist
 
@@ -51,6 +60,7 @@ Complete repository structure snapshot:
 
 ```text
 .
+├── .venv/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml
@@ -63,12 +73,8 @@ Complete repository structure snapshot:
 │   │   ├── dbt_project.yml
 │   │   ├── macros/
 │   │   ├── models/
-│   │   │   ├── marts/
-│   │   │   ├── sources.yml
-│   │   │   └── staging/
 │   │   ├── profiles.yml
-│   │   ├── profiles.yml.ci
-│   │   └── target/
+│   │   └── profiles.yml.ci
 │   └── sql/
 │       ├── athena/
 │       │   └── athena_full_dataset_ddl.sql
@@ -80,37 +86,25 @@ Complete repository structure snapshot:
 │       └── monitoring/
 │           └── data_quality_monitoring.sql
 ├── artifacts/
-│   ├── local/
-│   │   ├── audit/
-│   │   │   ├── checkpoints.json
-│   │   │   ├── freshness_report.csv
-│   │   │   ├── governance/
-│   │   │   │   ├── data_lineage.json
-│   │   │   │   └── schema_documentation.json
-│   │   │   ├── metrics.csv
-│   │   │   ├── silver_quality_report.csv
-│   │   │   └── smoke-check-main.json
-│   │   ├── bronze/
-│   │   ├── gold/
-│   │   ├── quarantine/
-│   │   ├── silver/
-│   │   └── visualizations/
-│   │       ├── capacity_by_country.png
-│   │       ├── fuel_mix_capacity.png
-│   │       ├── generation_trend.png
-│   │       └── manifest.json
-│   ├── local_kaggle_test/
-│   ├── tmp_guarantees_test/
-│   ├── tmp_incremental_test/
-│   └── tmp_incremental_test_replay/
+│   └── local/
+│       ├── audit/
+│       ├── bronze/
+│       ├── gold/
+│       ├── quarantine/
+│       ├── quicksight_defs/
+│       ├── silver/
+│       └── visualizations/
 ├── config/
 ├── dashboards/
 │   ├── Monitoring-Dashboard.pdf
 │   ├── Plant-Operations-Dashboard.pdf
 │   ├── Power-Generation-Dashboard.pdf
 │   ├── Sustainability-Dashboard.pdf
-│   ├── quicksight/
-│   │   └── kpi_mapping.md
+│   └── quicksight/
+│       └── kpi_mapping.md
+├── datasets/
+│   ├── global_power_plants_synthetic.csv
+│   └── global_power_plants_synthetic_records_v2.csv
 ├── docs/
 │   ├── adrs/
 │   │   └── 0001-lakehouse-medallion.md
@@ -120,7 +114,9 @@ Complete repository structure snapshot:
 │   │   ├── architecture.mmd
 │   │   └── network.mmd
 │   └── runbooks/
-│       └── end_to_end_implementation_guide.md
+│       ├── end_to_end_implementation_guide.md
+│       ├── quicksight_visual_implementation_checklist.md
+│       └── solution_challenges_and_steps.md
 ├── infra/
 │   └── terraform/
 │       ├── environments/
@@ -160,33 +156,22 @@ Complete repository structure snapshot:
 │       ├── test_normalization.py
 │       └── test_quality.py
 ├── pytest.ini
-├── samples/
-│   ├── incremental_updates/
-│   │   └── wri_power_plants_2024_02.csv
-│   └── raw/
-│       ├── carbon_emissions/
-│       ├── fuel_types/
-│       ├── generation/
-│       ├── power_plants/
-│       ├── renewable_adoption/
-│       ├── weather/
-│       └── world_bank/
 └── scripts/
-  ├── assume_persona_role.sh
-  ├── dbt_prepare_duckdb.py
-  ├── local_simulate_incremental.py
-  ├── post_deploy_smoke_check.sh
-  ├── refresh_quicksight_datasets.sh
-  ├── run_athena_dashboard_views.sh
-  ├── upload_glue_code.sh
-  └── validate_quicksight_assets.sh
+    ├── assume_persona_role.sh
+    ├── dbt_prepare_duckdb.py
+    ├── local_simulate_incremental.py
+    ├── post_deploy_smoke_check.sh
+    ├── refresh_quicksight_datasets.sh
+    ├── run_athena_dashboard_views.sh
+    ├── upload_glue_code.sh
+    └── validate_quicksight_assets.sh
 ```
 
 ## 3.1 End-to-end flow diagram
 
 ```mermaid
 flowchart LR
-  SRC[External Sources\nCSV API Kaggle] --> B[Glue Bronze Ingestion]
+  SRC[Configured Sources\nTwo local CSV datasets] --> B[Glue Bronze Ingestion]
   B --> BRZ[S3 Bronze]
   BRZ --> S[Glue Silver Transform]
   S --> SLV[S3 Silver]
@@ -243,27 +228,30 @@ source .venv/bin/activate
 pip install -r pipelines/requirements.txt
 ```
 
-1. (Optional) Configure Kaggle credentials for latest dataset pull:
+1. Verify active source scope in `pipelines/configs/sources.yaml`:
 
-```bash
-export KAGGLE_USERNAME="<your-kaggle-username>"
-export KAGGLE_KEY="<your-kaggle-api-key>"
-```
-
-You can also place credentials in `~/.kaggle/kaggle.json`.
-
-1. Enable Kaggle source in `pipelines/configs/sources.yaml`:
-
-- Set `enabled: true` for `kaggle_global_power_plants`
-- Keep `file_path` aligned to the CSV inside dataset `jaytilala/global-power-plant`
+- `global_power_plants_synthetic_records_v2` -> `datasets/global_power_plants_synthetic_records_v2.csv`
+- `global_power_plants_synthetic_records` -> `datasets/global_power_plants_synthetic.csv`
 
 1. Run local simulation (no AWS required):
 
 ```bash
 python scripts/local_simulate_incremental.py \
-  --source-dir samples/raw/power_plants \
-  --incremental-dir samples/incremental_updates \
+  --source-dir datasets \
+  --incremental-dir datasets \
   --output-dir artifacts/local
+```
+
+1. Run Silver/Gold locally (optional):
+
+```bash
+python -m pipelines.silver.transform_power_plants \
+  --data-root artifacts/local \
+  --schema pipelines/schemas/power_plants_schema.json \
+  --sources-config pipelines/configs/sources.yaml
+
+python -m pipelines.gold.build_gold_tables --data-root artifacts/local
+python -m pipelines.gold.build_visualizations --data-root artifacts/local
 ```
 
 1. Run tests:
@@ -510,11 +498,26 @@ Data protection implementation:
 
 ## 6. Processing flow
 
-1. Ingestion (Bronze): append-only raw ingest with checkpoint/state, including optional KaggleHub source pull.
+1. Ingestion (Bronze): append-only raw ingest with checkpoint/state from configured source contracts.
 2. Silver transform: normalize country/fuel, enforce schema, dedupe, quarantine bad rows.
 3. Gold build: dimensional models + facts + aggregates for dashboard workloads.
 4. Visualization build: automated chart artifacts generated from Gold (PNG + manifest) to S3 `visualizations/`.
 5. Monitoring: push custom quality/freshness metrics to CloudWatch.
+
+### 6.1 Monitoring data quality view fields
+
+`gppa_main_analytics.vw_monitoring_data_quality` provides:
+
+- `run_timestamp`
+- `dataset` (active source scope label)
+- `input_rows`
+- `valid_rows`
+- `malformed_rows`
+- `null_issues`
+- `range_issues`
+- `valid_ratio`
+
+Recommended QuickSight visual title: `Pipeline Data Quality Summary`.
 
 ### Automated visualization artifacts
 
@@ -635,6 +638,8 @@ quicksight_dashboard_templates = {
       monitoring_pipeline_freshness = "monitoring_pipeline_freshness"
       monitoring_failed_jobs        = "monitoring_failed_jobs"
       monitoring_data_quality       = "monitoring_data_quality"
+      monitoring_dq_failure_breakdown = "monitoring_dq_failure_breakdown"
+      monitoring_dq_failure_breakdown_latest = "monitoring_dq_failure_breakdown_latest"
       monitoring_latency            = "monitoring_latency"
     }
   }
@@ -688,6 +693,8 @@ Required dashboards and visualizations are mapped in analytics SQL views:
   - Pipeline freshness: `analytics/sql/monitoring/data_quality_monitoring.sql` -> `vw_monitoring_pipeline_freshness`
   - Failed jobs: `analytics/sql/monitoring/data_quality_monitoring.sql` -> `vw_monitoring_failed_jobs`
   - Data quality: `analytics/sql/monitoring/data_quality_monitoring.sql` -> `vw_monitoring_data_quality`
+  - DQ failure breakdown (per run): `analytics/sql/monitoring/data_quality_monitoring.sql` -> `vw_monitoring_dq_failure_breakdown`
+  - DQ failure breakdown (latest): `analytics/sql/monitoring/data_quality_monitoring.sql` -> `vw_monitoring_dq_failure_breakdown_latest`
   - Latency: `analytics/sql/monitoring/data_quality_monitoring.sql` -> `vw_monitoring_latency`
 
 ### Dashboard evidence

@@ -26,11 +26,34 @@ locals {
     power_generation_renewable_trends = {
       view_name = "vw_power_generation_renewable_trend"
       columns = [
-        { name = "year", type = "INTEGER" },
+        { name = "year", type = "STRING" },
         { name = "country", type = "STRING" },
         { name = "renewable_generation_gwh", type = "DECIMAL" },
         { name = "non_renewable_generation_gwh", type = "DECIMAL" },
         { name = "renewable_generation_ratio", type = "DECIMAL" }
+      ]
+    }
+    power_generation_global_fuel_dominance = {
+      view_name = "vw_power_generation_global_fuel_dominance"
+      columns = [
+        { name = "primary_fuel", type = "STRING" },
+        { name = "total_generation_gwh", type = "DECIMAL" },
+        { name = "fuel_rank", type = "INTEGER" }
+      ]
+    }
+    power_generation_annual_generation_trends = {
+      view_name = "vw_power_generation_annual_generation_trends"
+      columns = [
+        { name = "year", type = "STRING" },
+        { name = "total_generation_gwh", type = "DECIMAL" }
+      ]
+    }
+    power_generation_kpi_summary = {
+      view_name = "vw_power_generation_kpi_summary"
+      columns = [
+        { name = "total_generation_capacity_mw", type = "DECIMAL" },
+        { name = "renewable_energy_ratio", type = "DECIMAL" },
+        { name = "average_plant_capacity_mw", type = "DECIMAL" }
       ]
     }
     plant_largest_plants = {
@@ -41,7 +64,7 @@ locals {
         { name = "country", type = "STRING" },
         { name = "primary_fuel", type = "STRING" },
         { name = "capacity_mw", type = "DECIMAL" },
-        { name = "commissioning_year", type = "INTEGER" },
+        { name = "commissioning_year", type = "STRING" },
         { name = "latitude", type = "DECIMAL" },
         { name = "longitude", type = "DECIMAL" }
       ]
@@ -52,7 +75,7 @@ locals {
         { name = "country", type = "STRING" },
         { name = "primary_fuel", type = "STRING" },
         { name = "plant_count", type = "INTEGER" },
-        { name = "avg_commissioning_year", type = "DECIMAL" },
+        { name = "avg_commissioning_year", type = "INTEGER" },
         { name = "aging_30_plus_count", type = "INTEGER" },
         { name = "aging_40_plus_count", type = "INTEGER" }
       ]
@@ -60,13 +83,33 @@ locals {
     plant_utilization = {
       view_name = "vw_plant_operations_capacity_utilization"
       columns = [
-        { name = "year", type = "INTEGER" },
+        { name = "year", type = "STRING" },
         { name = "country", type = "STRING" },
         { name = "primary_fuel", type = "STRING" },
         { name = "total_capacity_mw", type = "DECIMAL" },
         { name = "total_generation_gwh", type = "DECIMAL" },
         { name = "theoretical_max_generation_gwh", type = "DECIMAL" },
         { name = "utilization_ratio", type = "DECIMAL" }
+      ]
+    }
+    plant_underutilized_plants = {
+      view_name = "vw_plant_operations_underutilized_plants"
+      columns = [
+        { name = "plant_id", type = "STRING" },
+        { name = "plant_name", type = "STRING" },
+        { name = "country", type = "STRING" },
+        { name = "primary_fuel", type = "STRING" },
+        { name = "year", type = "STRING" },
+        { name = "utilization_ratio", type = "DECIMAL" }
+      ]
+    }
+    plant_aging_by_region = {
+      view_name = "vw_plant_operations_aging_by_region"
+      columns = [
+        { name = "continent", type = "STRING" },
+        { name = "sub_region", type = "STRING" },
+        { name = "plant_count", type = "INTEGER" },
+        { name = "avg_commissioning_year", type = "INTEGER" }
       ]
     }
     sustainability_heatmap = {
@@ -101,7 +144,7 @@ locals {
     sustainability_clean_energy_growth = {
       view_name = "vw_sustainability_clean_energy_growth"
       columns = [
-        { name = "year", type = "INTEGER" },
+        { name = "year", type = "STRING" },
         { name = "continent", type = "STRING" },
         { name = "sub_region", type = "STRING" },
         { name = "country", type = "STRING" },
@@ -138,6 +181,18 @@ locals {
         { name = "plants_per_1000_mw", type = "DECIMAL" }
       ]
     }
+    geographic_heatmap_points = {
+      view_name = "vw_geographic_heatmap_points"
+      columns = [
+        { name = "plant_id", type = "STRING" },
+        { name = "plant_name", type = "STRING" },
+        { name = "country", type = "STRING" },
+        { name = "latitude", type = "DECIMAL" },
+        { name = "longitude", type = "DECIMAL" },
+        { name = "capacity_mw", type = "DECIMAL" },
+        { name = "primary_fuel", type = "STRING" }
+      ]
+    }
     monitoring_pipeline_freshness = {
       view_name = "vw_monitoring_pipeline_freshness"
       columns = [
@@ -167,6 +222,48 @@ locals {
         { name = "valid_ratio", type = "DECIMAL" }
       ]
     }
+    monitoring_dq_failure_breakdown = {
+      view_name = "vw_monitoring_dq_failure_breakdown"
+      columns = [
+        { name = "run_timestamp", type = "DATETIME" },
+        { name = "dataset", type = "STRING" },
+        { name = "input_rows", type = "INTEGER" },
+        { name = "valid_rows", type = "INTEGER" },
+        { name = "distinct_failed_records", type = "INTEGER" },
+        { name = "malformed_rows", type = "INTEGER" },
+        { name = "null_plant_name", type = "INTEGER" },
+        { name = "null_country", type = "INTEGER" },
+        { name = "null_primary_fuel", type = "INTEGER" },
+        { name = "null_capacity_mw", type = "INTEGER" },
+        { name = "invalid_capacity_rows", type = "INTEGER" },
+        { name = "invalid_commissioning_year_rows", type = "INTEGER" },
+        { name = "null_issue_points", type = "INTEGER" },
+        { name = "range_issue_points", type = "INTEGER" },
+        { name = "total_issue_points", type = "INTEGER" },
+        { name = "distinct_failure_ratio", type = "DECIMAL" }
+      ]
+    }
+    monitoring_dq_failure_breakdown_latest = {
+      view_name = "vw_monitoring_dq_failure_breakdown_latest"
+      columns = [
+        { name = "run_timestamp", type = "DATETIME" },
+        { name = "dataset", type = "STRING" },
+        { name = "input_rows", type = "INTEGER" },
+        { name = "valid_rows", type = "INTEGER" },
+        { name = "distinct_failed_records", type = "INTEGER" },
+        { name = "malformed_rows", type = "INTEGER" },
+        { name = "null_plant_name", type = "INTEGER" },
+        { name = "null_country", type = "INTEGER" },
+        { name = "null_primary_fuel", type = "INTEGER" },
+        { name = "null_capacity_mw", type = "INTEGER" },
+        { name = "invalid_capacity_rows", type = "INTEGER" },
+        { name = "invalid_commissioning_year_rows", type = "INTEGER" },
+        { name = "null_issue_points", type = "INTEGER" },
+        { name = "range_issue_points", type = "INTEGER" },
+        { name = "total_issue_points", type = "INTEGER" },
+        { name = "distinct_failure_ratio", type = "DECIMAL" }
+      ]
+    }
     monitoring_latency = {
       view_name = "vw_monitoring_latency"
       columns = [
@@ -179,18 +276,44 @@ locals {
         { name = "gold_to_viz_minutes", type = "INTEGER" }
       ]
     }
+    monitoring_duplicate_plants = {
+      view_name = "vw_monitoring_duplicate_plants"
+      columns = [
+        { name = "plant_id", type = "STRING" },
+        { name = "duplicate_count", type = "INTEGER" },
+        { name = "latest_ingested_at", type = "STRING" }
+      ]
+    }
+    monitoring_missing_or_inconsistent_generation = {
+      view_name = "vw_monitoring_missing_or_inconsistent_generation"
+      columns = [
+        { name = "plant_id", type = "STRING" },
+        { name = "plant_name", type = "STRING" },
+        { name = "country", type = "STRING" },
+        { name = "primary_fuel", type = "STRING" },
+        { name = "capacity_mw", type = "DECIMAL" },
+        { name = "estimated_generation_gwh", type = "DECIMAL" },
+        { name = "utilization_ratio", type = "DECIMAL" },
+        { name = "issue_type", type = "STRING" }
+      ]
+    }
   }
 
   dashboard_dataset_keys = {
     power_generation = [
       "power_generation_country_capacity",
       "power_generation_fuel_distribution",
-      "power_generation_renewable_trends"
+      "power_generation_renewable_trends",
+      "power_generation_global_fuel_dominance",
+      "power_generation_annual_generation_trends",
+      "power_generation_kpi_summary"
     ]
     plant = [
       "plant_largest_plants",
       "plant_aging_plants",
-      "plant_utilization"
+      "plant_utilization",
+      "plant_underutilized_plants",
+      "plant_aging_by_region"
     ]
     sustainability = [
       "sustainability_heatmap",
@@ -200,7 +323,7 @@ locals {
       "sustainability_coal_dependency"
     ]
     geographic = [
-      "sustainability_heatmap",
+      "geographic_heatmap_points",
       "geographic_country_infrastructure_density",
       "geographic_generation_density"
     ]
@@ -208,7 +331,11 @@ locals {
       "monitoring_pipeline_freshness",
       "monitoring_failed_jobs",
       "monitoring_data_quality",
-      "monitoring_latency"
+      "monitoring_dq_failure_breakdown",
+      "monitoring_dq_failure_breakdown_latest",
+      "monitoring_latency",
+      "monitoring_duplicate_plants",
+      "monitoring_missing_or_inconsistent_generation"
     ]
   }
 }

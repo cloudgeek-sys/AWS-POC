@@ -24,9 +24,35 @@ jobs:
       - name: Generate local pipeline artifacts
         run: |
           python scripts/local_simulate_incremental.py \
-            --source-dir samples/raw/power_plants \
-            --incremental-dir samples/incremental_updates \
+            --source-dir datasets \
+            --incremental-dir datasets \
             --output-dir artifacts/local
+
+      - name: Verify bronze artifacts exist
+        run: |
+          bronze_count=$(find artifacts/local/bronze -type f -name '*.parquet' | wc -l)
+          if [ "$bronze_count" -eq 0 ]; then
+            echo "ERROR: No bronze parquet files were generated in artifacts/local/bronze."
+            exit 1
+          fi
+          echo "Bronze artifact check passed: ${bronze_count} parquet file(s) found."
+
+      - name: Verify silver artifacts exist
+        run: |
+          if [ ! -f artifacts/local/silver/stg_power_plants.parquet ]; then
+            echo "ERROR: Missing expected silver artifact: artifacts/local/silver/stg_power_plants.parquet"
+            exit 1
+          fi
+          echo "Silver artifact check passed: stg_power_plants.parquet found."
+
+      - name: Verify gold artifacts exist
+        run: |
+          gold_count=$(find artifacts/local/gold -type f -name '*.parquet' | wc -l)
+          if [ "$gold_count" -eq 0 ]; then
+            echo "ERROR: No gold parquet files were generated in artifacts/local/gold."
+            exit 1
+          fi
+          echo "Gold artifact check passed: ${gold_count} parquet file(s) found."
 
       - name: Prepare DuckDB fixtures for dbt
         run: |

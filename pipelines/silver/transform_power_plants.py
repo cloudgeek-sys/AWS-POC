@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from pipelines.common.io_utils import ensure_dir, is_s3_uri, join_uri, list_s3_keys, read_dataset, read_json, write_csv, write_json, write_parquet
 from pipelines.common.metrics import emit_metric
@@ -39,6 +40,41 @@ MANDATORY_NULL_CHECK_FIELDS = [
     "primary_fuel",
     "capacity_mw",
 ]
+
+INVALID_PLACEHOLDER_TEXTS = {
+    "",
+    "?",
+    "unknown",
+    "unk",
+    "na",
+    "n/a",
+    "null",
+    "none",
+    "0",
+    "-",
+    "--",
+}
+
+
+def _load_active_sources(sources_config_path: str) -> list[str]:
+    path = Path(sources_config_path)
+    if not path.exists():
+        return []
+
+    with path.open("r", encoding="utf-8") as fh:
+        config = yaml.safe_load(fh) or {}
+
+    sources = config.get("sources", [])
+    active_sources: list[str] = []
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        if source.get("enabled", True) is False:
+            continue
+        source_name = source.get("source_name")
+        if source_name:
+            active_sources.append(str(source_name))
+    return active_sources
 
 
 def _latest_bronze_file(bronze_dir: str, source_name: str) -> str:
@@ -93,6 +129,16 @@ def _safe_read_csv_report(path: str) -> pd.DataFrame | None:
         return read_dataset(path, "csv")
     except Exception:
         return None
+
+
+def _nullify_placeholder_text_values(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    out = df.copy()
+    for col in columns:
+        if col not in out.columns:
+            continue
+        text = out[col].astype("string").str.strip()
+        out[col] = text.mask(text.str.lower().isin(INVALID_PLACEHOLDER_TEXTS), pd.NA)
+    return out
 
 
 def _standardize_units(df: pd.DataFrame) -> pd.DataFrame:
@@ -192,7 +238,7 @@ def _transform_raw_bronze(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def run(data_root: str, schema_path: str) -> None:
+def run(data_root: str, schema_path: str, sources_config_path: str) -> None:
     bronze_dir = join_uri(data_root, "bronze")
     silver_dir = join_uri(data_root, "silver")
     quarantine_dir = join_uri(data_root, "quarantine")
@@ -200,13 +246,13 @@ def run(data_root: str, schema_path: str) -> None:
 
     schema = load_schema(schema_path)
 
-    source_candidates = [
-        "global_power_plants_synthetic_records_v2",
-        "global_power_plants_synthetic_records",
-        "global_power_plants_synthetic",
-        "wri_global_power_plants",
-        "wri_power_plants",
-    ]
+    source_candidates = _load_active_sources(sources_config_path)
+    if not source_candidates:
+        source_candidates = [
+            "global_power_plants_synthetic_records_v2",
+            "global_power_plants_synthetic_records",
+        ]
+    dataset_scope_label = ",".join(sorted(source_candidates)) if source_candidates else "configured_sources"
     bronze_inputs: list[str] = []
     for candidate in source_candidates:
         try:
@@ -223,6 +269,7 @@ def run(data_root: str, schema_path: str) -> None:
     ]
     df = pd.concat(raw_frames, ignore_index=True, sort=False)
     df = _ensure_canonical_columns(df)
+    df = _nullify_placeholder_text_values(df, ["plant_name", "country", "primary_fuel"])
 
     missing_required = validate_required_columns(df, schema["required_columns"])
     if missing_required:
@@ -261,9 +308,7 @@ def run(data_root: str, schema_path: str) -> None:
     if existing_silver_path:
         existing_df = read_dataset(existing_silver_path, "parquet")
         if "plant_id" in existing_df.columns:
-            for mandatory_col in MANDATORY_NULL_CHECK_FIELDS:
-                if mandatory_col in existing_df.columns:
-                    existing_df[mandatory_col] = existing_df[mandatory_col].astype("string").str.strip().replace("", pd.NA)
+            existing_df = _nullify_placeholder_text_values(existing_df, ["plant_name", "country", "primary_fuel"])
             combined = pd.concat([existing_df, valid_df], ignore_index=True, sort=False)
             if "event_time" in combined.columns:
                 combined["_event_time_sort"] = pd.to_datetime(combined["event_time"], errors="coerce")
@@ -279,6 +324,11 @@ def run(data_root: str, schema_path: str) -> None:
                 .drop_duplicates(subset=["plant_id"], keep="last")
                 .drop(columns=["_event_time_sort", "_ingest_sort"], errors="ignore")
             )
+
+    # Ensure numeric columns keep numeric dtypes after merge/upsert with existing silver rows.
+    for col in schema["numeric_columns"]:
+        if col in valid_df.columns:
+            valid_df[col] = pd.to_numeric(valid_df[col], errors="coerce")
 
     # Re-apply mandatory null/range quality gates after upsert to prevent legacy bad rows leaking to Silver.
     valid_df, malformed_after_upsert = split_malformed_records(
@@ -333,7 +383,7 @@ def run(data_root: str, schema_path: str) -> None:
         [
             {
                 "run_timestamp": datetime.now(timezone.utc).isoformat(),
-                "dataset": "stg_power_plants",
+                "dataset": dataset_scope_label,
                 "input_rows": int(len(df)),
                 "valid_rows": int(len(valid_df)),
                 "malformed_rows": int(len(malformed_df)),
@@ -544,10 +594,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Silver transform for power plant datasets")
     parser.add_argument("--data-root", default="artifacts/local")
     parser.add_argument("--schema", default="pipelines/schemas/power_plants_schema.json")
+    parser.add_argument("--sources-config", default="pipelines/configs/sources.yaml")
     args, _ = parser.parse_known_args()
     return args
 
 
 if __name__ == "__main__":
     args = parse_args()
-    run(args.data_root, args.schema)
+    run(args.data_root, args.schema, args.sources_config)

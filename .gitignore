@@ -24,3 +24,6 @@ logs/
 
 # Local env
 .env
+
+# Local source datasets (kept outside git due GitHub file size limit)
+datasets/*.csv

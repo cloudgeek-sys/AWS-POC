@@ -1,17 +1,22 @@
 flowchart LR
-    GH[GitHub Actions] --> TF[Terraform Deploy]
-    TF --> IAM[IAM Roles and Policies]
-    TF --> S3[S3 Data Lake]
-    TF --> GLUE[AWS Glue Jobs]
+    GH[GitHub Actions CI/CD] --> TF[Terraform Deploy Main]
+    TF --> IAM[IAM Runtime Roles]
+    TF --> S3[S3 Lake Bucket]
+    TF --> GLUE[AWS Glue Jobs and Crawlers]
     TF --> SFN[AWS Step Functions]
     TF --> ATH[Athena Workgroup]
-    TF --> CW[CloudWatch]
-    TF --> QS[QuickSight]
+    TF --> MON[CloudWatch Alarms]
+    TF --> QS[QuickSight Data Source and Datasets]
+    TF --> SNS[SNS Alarm Topic]
+
+    SFN --> GLUE
+    SFN --> ATH
+    SFN --> SNS
 
     GLUE --> S3
-    SFN --> GLUE
     ATH --> S3
     QS --> ATH
 
-    GLUE --> CW
-    SFN --> CW
+    GLUE --> CWL[CloudWatch Logs]
+    SFN --> CWL
+    MON --> SNS

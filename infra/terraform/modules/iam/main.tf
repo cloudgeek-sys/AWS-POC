@@ -871,13 +871,20 @@ data "aws_iam_policy_document" "persona_analyst" {
 
 data "aws_iam_policy_document" "persona_dashboard_user" {
   statement {
-    sid = "QuickSightDashboardRead"
+    sid = "QuickSightDashboardAuthor"
 
     actions = [
       "quicksight:DescribeDashboard",
       "quicksight:ListDashboards",
       "quicksight:QueryDashboard",
-      "quicksight:GenerateEmbedUrlForRegisteredUser"
+      "quicksight:GenerateEmbedUrlForRegisteredUser",
+      "quicksight:DescribeAnalysis",
+      "quicksight:DescribeAnalysisDefinition",
+      "quicksight:UpdateAnalysis",
+      "quicksight:ListAnalyses",
+      "quicksight:DescribeDataSet",
+      "quicksight:PassDataSet",
+      "quicksight:ListDataSets"
     ]
 
     resources = ["*"]

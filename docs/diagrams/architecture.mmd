@@ -34,13 +34,14 @@ flowchart LR
         VIZ[AWS Glue Job gppa-main-visualizations-build]
     end
 
-    subgraph EXT[External Data Sources]
-        KAG[Kaggle or API Sources]
+    subgraph EXT[Configured Sources]
+        SRC1[global_power_plants_synthetic_records_v2 CSV]
+        SRC2[global_power_plants_synthetic_records CSV]
     end
 
     subgraph LAKE[AWS S3 Lakehouse]
         LKB[S3 Bucket gppa-main-lake-platform-20260710212811]
-        RAW[S3 Raw and Incremental Sources]
+        RAW[S3 Source Objects and Uploaded Code]
         BRZ[S3 Bronze Layer]
         SLV[S3 Silver Layer]
         GLD[S3 Gold Layer]
@@ -74,7 +75,8 @@ flowchart LR
     TF --> VIZ
 
     LKB --> RAW
-    KAG --> ING
+    SRC1 --> ING
+    SRC2 --> ING
     RAW --> ING
     SFN --> ING
     SFN --> TRN
@@ -124,5 +126,5 @@ flowchart LR
 
     class SFN,ING,TRN,GLD_JOB,VIZ,CAT,ATH,QS,CW aws;
     class RAW,BRZ,SLV,GLD,QTN,AUD,VOUT store;
-    class GH,TF,UP,MET,KAG ops;
+    class GH,TF,UP,MET,SRC1,SRC2 ops;
     class P1,P2,P3,P4,P5 flow;

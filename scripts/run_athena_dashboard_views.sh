@@ -112,8 +112,10 @@ bootstrap_athena_objects() {
   local data_lake_bucket="$1"
   local audit_metrics_src="s3://${data_lake_bucket}/audit/metrics.csv"
   local audit_quality_src="s3://${data_lake_bucket}/audit/silver_quality_report.csv"
+  local audit_freshness_src="s3://${data_lake_bucket}/audit/freshness_report.csv"
   local audit_metrics_dst="s3://${data_lake_bucket}/audit_tables/metrics/data.csv"
   local audit_quality_dst="s3://${data_lake_bucket}/audit_tables/silver_quality_report/data.csv"
+  local audit_freshness_dst="s3://${data_lake_bucket}/audit_tables/freshness_report/data.csv"
 
   echo "Bootstrapping analytics database and external tables"
 
@@ -143,10 +145,17 @@ bootstrap_athena_objects() {
     echo "- Skipping audit_metrics; source not found at ${audit_metrics_src}"
   fi
 
+  if aws s3 ls "$audit_freshness_src" >/dev/null 2>&1; then
+    echo "- Ensuring isolated audit table prefix for freshness_report"
+    aws s3 cp "$audit_freshness_src" "$audit_freshness_dst" >/dev/null
+  else
+    echo "- Skipping audit_freshness_report; source not found at ${audit_freshness_src}"
+  fi
+
   run_query "CREATE DATABASE IF NOT EXISTS ${DATABASE}" ""
 
   run_query "DROP TABLE IF EXISTS ${DATABASE}.silver_stg_power_plants"
-  run_query "CREATE EXTERNAL TABLE ${DATABASE}.silver_stg_power_plants (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year bigint, latitude double, longitude double, owner string, estimated_generation_gwh double, continent string, sub_region string, last_updated_at string, ingested_at string, source_name string, event_year bigint, event_month bigint) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/silver/' TBLPROPERTIES ('classification'='parquet')"
+  run_query "CREATE EXTERNAL TABLE ${DATABASE}.silver_stg_power_plants (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year double, latitude double, longitude double, owner string, estimated_generation_gwh double, continent string, sub_region string, last_updated_at string, ingested_at string, source_name string, event_year bigint, event_month bigint) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/silver/' TBLPROPERTIES ('classification'='parquet')"
 
   run_query "DROP TABLE IF EXISTS ${DATABASE}.dim_plant"
   run_query "CREATE EXTERNAL TABLE ${DATABASE}.dim_plant (plant_id string, plant_name string, country string, capacity_mw double, primary_fuel string, commissioning_year double, latitude double, longitude double, owner_masked string) STORED AS PARQUET LOCATION 's3://${data_lake_bucket}/gold_tables/dim_plant/' TBLPROPERTIES ('classification'='parquet')"
@@ -166,6 +175,9 @@ bootstrap_athena_objects() {
 
   run_query "DROP TABLE IF EXISTS ${DATABASE}.audit_silver_quality_report"
   run_query "CREATE EXTERNAL TABLE ${DATABASE}.audit_silver_quality_report (run_timestamp string, dataset string, input_rows string, valid_rows string, malformed_rows string, duplicate_rows_detected string, unique_plant_id_ok string, duplicate_plant_id_count string, mandatory_fields_ok string, mandatory_null_validation_ok string, null_plant_name string, null_country string, null_primary_fuel string, null_capacity_mw string, positive_capacity_ok string, invalid_capacity_rows string, valid_commissioning_year_ok string, invalid_commissioning_year_rows string, schema_drift_detected string, schema_new_columns string, schema_removed_columns string, null_issues string, range_issues string) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ('separatorChar'=',','quoteChar'='\"') STORED AS TEXTFILE LOCATION 's3://${data_lake_bucket}/audit_tables/silver_quality_report/' TBLPROPERTIES ('skip.header.line.count'='1')"
+
+  run_query "DROP TABLE IF EXISTS ${DATABASE}.audit_freshness_report"
+  run_query "CREATE EXTERNAL TABLE ${DATABASE}.audit_freshness_report (run_timestamp string, source_name string, ingest_status string, last_ingested_at string, event_time_watermark string, update_sla_hours string, hours_since_last_update string, missing_updates string, ingestion_delay_sla_hours string, ingestion_delay_hours string, ingestion_delay_breached string) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ('separatorChar'=',','quoteChar'='\"') STORED AS TEXTFILE LOCATION 's3://${data_lake_bucket}/audit_tables/freshness_report/' TBLPROPERTIES ('skip.header.line.count'='1')"
 
   run_query "CREATE EXTERNAL TABLE IF NOT EXISTS ${DATABASE}.audit_metrics (metric_timestamp string, metric_name string, metric_value double) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ('separatorChar'=',','quoteChar'='\"') STORED AS TEXTFILE LOCATION 's3://${data_lake_bucket}/audit_tables/metrics/' TBLPROPERTIES ('skip.header.line.count'='0')"
 }

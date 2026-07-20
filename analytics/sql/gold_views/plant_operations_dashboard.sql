@@ -5,20 +5,37 @@ SELECT
   CAST(country AS varchar) AS country,
   CAST(primary_fuel AS varchar) AS primary_fuel,
   CAST(capacity_mw AS double) AS capacity_mw,
-  CAST(commissioning_year AS integer) AS commissioning_year,
+  CAST(try_cast(round(try_cast(commissioning_year AS double)) AS integer) AS varchar) AS commissioning_year,
   CAST(latitude AS double) AS latitude,
   CAST(longitude AS double) AS longitude
-FROM dim_plant;
+FROM dim_plant
+WHERE plant_id IS NOT NULL
+  AND trim(CAST(plant_id AS varchar)) <> ''
+  AND plant_name IS NOT NULL
+  AND trim(CAST(plant_name AS varchar)) <> ''
+  AND country IS NOT NULL
+  AND trim(CAST(country AS varchar)) <> ''
+  AND primary_fuel IS NOT NULL
+  AND trim(CAST(primary_fuel AS varchar)) <> ''
+  AND capacity_mw IS NOT NULL
+  AND commissioning_year IS NOT NULL
+  AND latitude IS NOT NULL
+  AND longitude IS NOT NULL;
 
 CREATE OR REPLACE VIEW vw_plant_operations_aging_infrastructure AS
 SELECT
   CAST(country AS varchar) AS country,
   CAST(primary_fuel AS varchar) AS primary_fuel,
   CAST(COUNT(*) AS integer) AS plant_count,
-  CAST(AVG(commissioning_year) AS double) AS avg_commissioning_year,
+  CAST(round(AVG(try_cast(commissioning_year AS double))) AS integer) AS avg_commissioning_year,
   CAST(SUM(CASE WHEN commissioning_year < year(current_date) - 30 THEN 1 ELSE 0 END) AS integer) AS aging_30_plus_count,
   CAST(SUM(CASE WHEN commissioning_year < year(current_date) - 40 THEN 1 ELSE 0 END) AS integer) AS aging_40_plus_count
 FROM dim_plant
+WHERE country IS NOT NULL
+  AND trim(CAST(country AS varchar)) <> ''
+  AND primary_fuel IS NOT NULL
+  AND trim(CAST(primary_fuel AS varchar)) <> ''
+  AND commissioning_year IS NOT NULL
 GROUP BY 1,2;
 
 CREATE OR REPLACE VIEW vw_plant_operations_capacity_utilization AS
@@ -40,7 +57,7 @@ capacity_by_country_fuel AS (
   GROUP BY 1,2
 )
 SELECT
-  CAST(g.year AS integer) AS year,
+  CAST(try_cast(round(try_cast(g.year AS double)) AS integer) AS varchar) AS year,
   CAST(g.country AS varchar) AS country,
   CAST(g.primary_fuel AS varchar) AS primary_fuel,
   CAST(c.total_capacity_mw AS double) AS total_capacity_mw,
@@ -53,14 +70,21 @@ SELECT
 FROM generation_by_country_fuel g
 JOIN capacity_by_country_fuel c
   ON g.country = c.country
- AND g.primary_fuel = c.primary_fuel;
+ AND g.primary_fuel = c.primary_fuel
+WHERE g.year IS NOT NULL
+  AND g.country IS NOT NULL
+  AND trim(CAST(g.country AS varchar)) <> ''
+  AND g.primary_fuel IS NOT NULL
+  AND trim(CAST(g.primary_fuel AS varchar)) <> ''
+  AND g.total_generation_gwh IS NOT NULL
+  AND c.total_capacity_mw IS NOT NULL;
 
 CREATE OR REPLACE VIEW vw_plant_operations_underutilized_plants AS
 SELECT
-  CAST(plant_id AS varchar) AS plant_id,
-  CAST(plant_name AS varchar) AS plant_name,
-  CAST(country AS varchar) AS country,
-  CAST(primary_fuel AS varchar) AS primary_fuel,
+  CAST(coalesce(plant_id, 'Unknown') AS varchar) AS plant_id,
+  CAST(coalesce(plant_name, 'Unknown') AS varchar) AS plant_name,
+  CAST(coalesce(country, 'Unknown') AS varchar) AS country,
+  CAST(coalesce(primary_fuel, 'Unknown') AS varchar) AS primary_fuel,
   CAST(capacity_mw AS double) AS capacity_mw,
   CAST(estimated_generation_gwh AS double) AS estimated_generation_gwh,
   CAST(capacity_mw * 8.76 AS double) AS theoretical_generation_gwh,
@@ -79,8 +103,13 @@ SELECT
   CAST(continent AS varchar) AS continent,
   CAST(sub_region AS varchar) AS sub_region,
   CAST(COUNT(*) AS integer) AS plant_count,
-  CAST(AVG(commissioning_year) AS double) AS avg_commissioning_year,
+  CAST(round(AVG(try_cast(commissioning_year AS double))) AS integer) AS avg_commissioning_year,
   CAST(SUM(CASE WHEN commissioning_year < year(current_date) - 30 THEN 1 ELSE 0 END) AS integer) AS aging_30_plus_count,
   CAST(SUM(CASE WHEN commissioning_year < year(current_date) - 40 THEN 1 ELSE 0 END) AS integer) AS aging_40_plus_count
 FROM silver_stg_power_plants
+WHERE continent IS NOT NULL
+  AND trim(CAST(continent AS varchar)) <> ''
+  AND sub_region IS NOT NULL
+  AND trim(CAST(sub_region AS varchar)) <> ''
+  AND commissioning_year IS NOT NULL
 GROUP BY 1,2;
