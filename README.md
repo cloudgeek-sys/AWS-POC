@@ -20,6 +20,7 @@ Current operational baseline:
   - `datasets/global_power_plants_synthetic.csv`
 - Monitoring freshness is sourced from Bronze freshness audit (`audit_freshness_report`) so both configured sources are visible.
 - Placeholder categorical values (`?`, `unknown`, `0`, `na`, `n/a`, `null`, etc.) are normalized out before dashboard serving.
+- Dataset CSV files are intentionally local-only and excluded from git because each file exceeds GitHub's 100 MB limit.
 
 ## 2. High-level architecture
 
@@ -102,7 +103,7 @@ Complete repository structure snapshot:
 │   ├── Sustainability-Dashboard.pdf
 │   └── quicksight/
 │       └── kpi_mapping.md
-├── datasets/
+├── datasets/ (local-only, not committed)
 │   ├── global_power_plants_synthetic.csv
 │   └── global_power_plants_synthetic_records_v2.csv
 ├── docs/
@@ -219,6 +220,11 @@ flowchart LR
 ```
 
 ## 4. Quick start (local)
+
+Important:
+
+- The `datasets/*.csv` files are not committed to git (size limit safety).
+- Place the two required CSVs in `datasets/` before running local simulation or CI-equivalent commands.
 
 1. Create virtual environment and install dependencies:
 
