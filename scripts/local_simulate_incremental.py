@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import os
 import sys
 import tempfile
@@ -40,6 +41,93 @@ def _write_runtime_source_config(csv_path: Path, config_path: Path) -> None:
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
 
+def _write_fallback_fixture(csv_path: Path, rows: list[dict]) -> None:
+    fieldnames = [
+        "plant_id",
+        "plant_name",
+        "country",
+        "primary_fuel",
+        "capacity_mw",
+        "commissioning_year",
+        "latitude",
+        "longitude",
+        "estimated_generation_gwh",
+        "owner",
+        "last_updated_at",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _build_fallback_inputs(temp_dir: Path) -> tuple[Path, Path]:
+    baseline_csv = temp_dir / "fallback_baseline.csv"
+    incremental_csv = temp_dir / "fallback_incremental.csv"
+
+    baseline_rows = [
+        {
+            "plant_id": "SIM-001",
+            "plant_name": "Alpha Solar One",
+            "country": "India",
+            "primary_fuel": "Solar",
+            "capacity_mw": "120",
+            "commissioning_year": "2018",
+            "latitude": "23.5937",
+            "longitude": "78.9629",
+            "estimated_generation_gwh": "210",
+            "owner": "Sample Utility",
+            "last_updated_at": "2026-01-01T00:00:00+00:00",
+        },
+        {
+            "plant_id": "SIM-002",
+            "plant_name": "Beta Hydro Station",
+            "country": "Brazil",
+            "primary_fuel": "Hydro",
+            "capacity_mw": "310",
+            "commissioning_year": "2012",
+            "latitude": "-14.2350",
+            "longitude": "-51.9253",
+            "estimated_generation_gwh": "980",
+            "owner": "Grid Operator",
+            "last_updated_at": "2026-01-01T00:00:00+00:00",
+        },
+    ]
+
+    incremental_rows = [
+        {
+            "plant_id": "SIM-001",
+            "plant_name": "Alpha Solar One",
+            "country": "India",
+            "primary_fuel": "Solar",
+            "capacity_mw": "125",
+            "commissioning_year": "2018",
+            "latitude": "23.5937",
+            "longitude": "78.9629",
+            "estimated_generation_gwh": "225",
+            "owner": "Sample Utility",
+            "last_updated_at": "2026-02-01T00:00:00+00:00",
+        },
+        {
+            "plant_id": "SIM-003",
+            "plant_name": "Gamma Wind Farm",
+            "country": "United States",
+            "primary_fuel": "Wind",
+            "capacity_mw": "200",
+            "commissioning_year": "2020",
+            "latitude": "37.0902",
+            "longitude": "-95.7129",
+            "estimated_generation_gwh": "450",
+            "owner": "Regional Energy",
+            "last_updated_at": "2026-02-01T00:00:00+00:00",
+        },
+    ]
+
+    _write_fallback_fixture(baseline_csv, baseline_rows)
+    _write_fallback_fixture(incremental_csv, incremental_rows)
+    return baseline_csv, incremental_csv
+
+
 def run(source_dir: Path, incremental_dir: Path, output_dir: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     source_dir = source_dir if source_dir.is_absolute() else (repo_root / source_dir)
@@ -54,10 +142,14 @@ def run(source_dir: Path, incremental_dir: Path, output_dir: Path) -> None:
     # CI/local simulation should not require AWS credentials for CloudWatch metrics.
     os.environ["DISABLE_CLOUDWATCH_METRICS"] = "true"
 
-    baseline_csv = _first_csv_file(source_dir)
-    incremental_csv = _first_csv_file(incremental_dir)
-
     with tempfile.TemporaryDirectory(prefix="local-sim-") as temp_dir:
+        temp_path = Path(temp_dir)
+        try:
+            baseline_csv = _first_csv_file(source_dir)
+            incremental_csv = _first_csv_file(incremental_dir)
+        except FileNotFoundError:
+            baseline_csv, incremental_csv = _build_fallback_inputs(temp_path)
+
         baseline_config = Path(temp_dir) / "sources_baseline.yaml"
         incremental_config = Path(temp_dir) / "sources_incremental.yaml"
         _write_runtime_source_config(baseline_csv, baseline_config)
